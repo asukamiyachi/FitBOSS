@@ -63,7 +63,7 @@ Documentation: https://firebase.google.com/docs/ios/setup · https://firebase.go
 | Realtime Database instance | Not confirmed |
 | Firebase Swift SDK in macOS app | Not added |
 | Security Rules deployment | Not done |
-| GitHub Actions | Manual-only workflow on `main`, not modified by this branch |
+| GitHub Actions | Automatic CI for pull requests and `main` enabled on 2026-11-02; no Firebase deployment |
 
 Firebase Apple SDK references (2026): https://firebase.google.com/docs/ios/setup and https://firebase.google.com/docs/ios/learn-more .
 
