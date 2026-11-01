@@ -16,8 +16,8 @@
 
 1. **Reported completed by user:** Created development Firebase project ID `fitboss-acde2`. Console: https://console.firebase.google.com/project/fitboss-acde2/overview . This ID is a public project identifier, not a secret; project existence/ownership has not been independently verified. Keep production separate.
 2. Google Analytics: user chose to keep the project-level Analytics setting on. This does **not** mean an Analytics SDK is installed in the macOS app. Decide event collection/notice/opt-out before adding the SDK; avoid logging camera images, pose landmarks, or detailed workout health signals.
-3. **Not yet confirmed:** Register an **Apple** app at https://console.firebase.google.com/project/fitboss-acde2/settings/general using exact case-sensitive bundle ID `com.asukamiyachi.FitBOSS` (matches `Resources/Info.plist` on camera PR #1). Optional app nickname: `FitBOSS macOS Dev`. Leave App Store ID blank. Download `GoogleService-Info.plist` for later local integration. Do not commit the downloaded file for now.
-4. **Not yet confirmed:** In **Authentication → Sign-in method**, configure an initial login method. For persistent multi-device team membership, **Email/Password** is an uncomplicated starting choice. Use accounts made for testing, and consider email-verification policy before sharing invitations; Firebase macOS Authentication support is partial, so test the selected provider specifically. Anonymous test accounts can be upgraded by linking credentials later.
+3. **User screenshot confirmed:** The Apple app was registered under `com.asukamiyachi.FitBOSS` (matches `Resources/Info.plist` on camera PR #1), and the initial `GoogleService-Info.plist` was downloaded locally. After enabling Google as a provider, **download an updated plist**. Do not commit the downloaded file for now. Apple app settings: https://console.firebase.google.com/project/fitboss-acde2/settings/general .
+4. **Decision: Google Sign-In only. Not yet confirmed enabled:** In **Authentication → Sign-in method**, enable **Google** and select a project support email. Leave Email/Password, Anonymous, Apple, and other sign-in providers disabled for the initial private testing scope. After enabling Google, **download a fresh `GoogleService-Info.plist`** from the Apple app settings; do not commit it. macOS native integration will use `GoogleSignIn-iOS` (which also supports macOS), `FirebaseAuth`, the browser redirect URL scheme from `REVERSED_CLIENT_ID`, and Keychain entitlements/signing. Test the login flow on a real Mac before release.
 5. **Not yet confirmed:** Create **Cloud Firestore** in **Production mode** with initially closed rules. Proposed region **`asia-northeast1` (Tokyo)** for Japan-based usage if available. The instance region cannot be changed later. The un-deployed repository rules deny all.
 6. **Not yet confirmed:** Create **Realtime Database** in **locked mode**. Proposed available Asian region **`asia-southeast1` (Singapore)**. Do not assume Tokyo is available for Realtime Database; select a region from its own offered list. This instance region cannot be changed later.
 7. **Do not deploy functions or switch billing plans yet.** Plan Cloud Functions and costs only when a concrete backend action is needed. Consider budget alerts before upgrading.
@@ -57,8 +57,8 @@ Documentation: https://firebase.google.com/docs/ios/setup · https://firebase.go
 | Item | Status |
 | --- | --- |
 | Firebase project `fitboss-acde2` | User reports created |
-| Apple app registration | Not confirmed |
-| Authentication provider | Not confirmed |
+| Apple app registration | Confirmed by user-provided screenshot |
+| Authentication provider | Google only **decided**, Firebase Console activation not yet verified |
 | Cloud Firestore instance | Not confirmed |
 | Realtime Database instance | Not confirmed |
 | Firebase Swift SDK in macOS app | Not added |
@@ -66,3 +66,18 @@ Documentation: https://firebase.google.com/docs/ios/setup · https://firebase.go
 | GitHub Actions | Manual-only workflow on `main`, not modified by this branch |
 
 Firebase Apple SDK references (2026): https://firebase.google.com/docs/ios/setup and https://firebase.google.com/docs/ios/learn-more .
+
+## Google-only sign-in decision (2026-11-02)
+
+- **Authentication providers:** Google enabled only (to be toggled in Console); no Email/Password, anonymous or Apple in the current plan.
+- **Stable identifier:** Use the verified Firebase Auth `uid` as the principal; do not use email address, display name, or Google photo URL as primary keys, room authorization or team membership references.
+- **Minimum account data:** Only store required app profile fields. Keep private email/photo out of room broadcasts and public rankings.
+- **On macOS:** Google Sign-In uses the default browser and a redirect URL; register the reversed client ID URL scheme and correctly configured Keychain access group. Do not assume iOS-specific presentation code builds for macOS.
+- **Local guest use:** The camera-only exercise lab should remain usable without signing in; Google login gates cloud synchronization/teams/rooms, not the on-device camera. This prevents mandatory account creation for basic exercises.
+- **App Store distribution:** Apple's current App Review Guideline 4.8 may require an equivalent privacy-preserving alternative when a general-audience app uses Google as the primary third-party sign-in, unless a stated exception applies. Re-evaluate before Mac App Store distribution; **Google-only is a private-development decision, not a guarantee of App Store approval**.
+- **Account lifecycle:** Plan in-app account deletion and team-data handling before publishing.
+
+Official references:
+- https://firebase.google.com/docs/auth/ios/google-signin
+- https://github.com/google/GoogleSignIn-iOS
+- https://developer.apple.com/app-store/review/guidelines/
