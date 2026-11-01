@@ -1,6 +1,6 @@
 # FitBOSS Firebase setup (development only)
 
-**Status:** prepared repository files; **no Firebase cloud project has been created, connected or deployed by this PR**.
+**Status:** user reports that Firebase project `fitboss-acde2` was created on 2026-11-02. No authenticated console inspection, Apple app registration, service activation, cloud connection, or deployment has been performed by this PR.
 
 ## What is already decided
 
@@ -14,20 +14,20 @@
 
 ## Console checklist (user action)
 
-1. Open https://console.firebase.google.com/ and create a **development** project. Choose your own unique project ID. Keep development and production in separate projects.
-2. Review the Google Analytics option: it is **not required** for this MVP; avoid collecting analytics by default.
-3. Register an **Apple** app with bundle ID `com.asukamiyachi.FitBOSS` (match `Resources/Info.plist` in camera PR #1). Download `GoogleService-Info.plist` for later use on macOS. Do not commit local config while initial setup is under review.
-4. In **Authentication → Sign-in method**, configure the login method. Recommendation: start with test users; choose a stable sign-in method before persistent multi-device team membership. Anonymous test accounts can be upgraded by linking credentials later.
-5. Create **Cloud Firestore** in the required region (select deliberately; location is not easily changed). Restrict all client access until Security Rules are tested.
-6. Create **Realtime Database** in an available region near your users. Start in **locked** mode. The service's locations are not necessarily identical to Firestore regions.
+1. **Reported completed by user:** Created development Firebase project ID `fitboss-acde2`. Console: https://console.firebase.google.com/project/fitboss-acde2/overview . This ID is a public project identifier, not a secret; project existence/ownership has not been independently verified. Keep production separate.
+2. Google Analytics: user chose to keep the project-level Analytics setting on. This does **not** mean an Analytics SDK is installed in the macOS app. Decide event collection/notice/opt-out before adding the SDK; avoid logging camera images, pose landmarks, or detailed workout health signals.
+3. **Not yet confirmed:** Register an **Apple** app at https://console.firebase.google.com/project/fitboss-acde2/settings/general using exact case-sensitive bundle ID `com.asukamiyachi.FitBOSS` (matches `Resources/Info.plist` on camera PR #1). Optional app nickname: `FitBOSS macOS Dev`. Leave App Store ID blank. Download `GoogleService-Info.plist` for later local integration. Do not commit the downloaded file for now.
+4. **Not yet confirmed:** In **Authentication → Sign-in method**, configure an initial login method. For persistent multi-device team membership, **Email/Password** is an uncomplicated starting choice. Use accounts made for testing, and consider email-verification policy before sharing invitations; Firebase macOS Authentication support is partial, so test the selected provider specifically. Anonymous test accounts can be upgraded by linking credentials later.
+5. **Not yet confirmed:** Create **Cloud Firestore** in **Production mode** with initially closed rules. Proposed region **`asia-northeast1` (Tokyo)** for Japan-based usage if available. The instance region cannot be changed later. The un-deployed repository rules deny all.
+6. **Not yet confirmed:** Create **Realtime Database** in **locked mode**. Proposed available Asian region **`asia-southeast1` (Singapore)**. Do not assume Tokyo is available for Realtime Database; select a region from its own offered list. This instance region cannot be changed later.
 7. **Do not deploy functions or switch billing plans yet.** Plan Cloud Functions and costs only when a concrete backend action is needed. Consider budget alerts before upgrading.
-8. Provide the **project ID only**, not passwords, service-account JSON or access tokens, for the next integration step.
+8. Project ID received: **`fitboss-acde2`**. Do not share passwords, service-account JSON or access tokens. The Apple configuration file can remain local.
 
 ## Config included in this PR
 
 - `firebase.json` lists Firestore/Realtime Database rules, empty Firestore indexes and local emulators.
 - `firebase/firestore.rules` and `firebase/database.rules.json` **DENY ALL** client reads and writes. These are safe placeholders, **not usable product access rules**.
-- No `.firebaserc` is created because no actual project ID is known.
+- `.firebaserc` has only the **`dev` alias** set to `fitboss-acde2`; there is deliberately no `default` alias, reducing the chance of unintentionally targeting a cloud project. Any later deploy must explicitly select the project after security tests and review.
 - The camera-only Swift target must stay independent of Firebase; introduce a separate Firebase service layer later after PR #1 builds successfully.
 
 ## Safety gate before backend deployment
@@ -51,3 +51,18 @@ firebase emulators:start --project demo-fitboss --only auth,firestore,database
 The `demo-` project ID is an emulator-only example, not your actual project. **Do not run `firebase deploy`** until project selection, allow rules, and security tests are approved. Firebase CLI can initialize the local project when needed; avoid overwriting this prepared `firebase.json`.
 
 Documentation: https://firebase.google.com/docs/ios/setup · https://firebase.google.com/docs/database/ios/offline-capabilities · https://firebase.google.com/docs/rules
+
+## Cloud setup status checklist (not independently verified)
+
+| Item | Status |
+| --- | --- |
+| Firebase project `fitboss-acde2` | User reports created |
+| Apple app registration | Not confirmed |
+| Authentication provider | Not confirmed |
+| Cloud Firestore instance | Not confirmed |
+| Realtime Database instance | Not confirmed |
+| Firebase Swift SDK in macOS app | Not added |
+| Security Rules deployment | Not done |
+| GitHub Actions | Manual-only workflow on `main`, not modified by this branch |
+
+Firebase Apple SDK references (2026): https://firebase.google.com/docs/ios/setup and https://firebase.google.com/docs/ios/learn-more .
