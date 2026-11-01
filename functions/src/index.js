@@ -98,6 +98,50 @@ exports.getRoom=callable(async({data},uid)=>{
   return {roomId,teamId:r.teamId,exerciseId:r.exerciseId,phase:r.phase,
     participantUids:r.participantUids,hostUid:r.hostUid,createdAt:r.createdAt};
 });
+exports.startRoom=callable(async({data},uid)=>{
+  const room=fs.doc("rooms/"+requireString(data?.roomId,"ルーム"));
+  await fs.runTransaction(async tx=>{
+    const snap=await tx.get(room);
+    if(!snap.exists||snap.data().hostUid!==uid)d.fail("permission-denied","ホストではありません");
+    if(snap.data().phase!=="waiting")d.fail("failed-precondition","開始できません");
+    if(snap.data().expiresAt<=Date.now())d.fail("failed-precondition","期限切れです");
+    const m=await tx.get(memberRef(snap.data().teamId,uid));
+    if(!m.exists)d.fail("permission-denied","チームを脱退しています");
+    tx.update(room,{phase:"active",startedAt:Date.now()});
+  });
+  return {phase:"active"};
+});
+exports.updateRoomProgress=callable(async({data},uid)=>{
+  const roomId=requireString(data?.roomId,"ルーム"),value=data?.value;
+  if(!Number.isSafeInteger(value)||value<0||value>500)d.fail("invalid-argument","計測数が不正です");
+  const snapshot=await fs.doc("rooms/"+roomId).get();
+  if(!snapshot.exists||snapshot.data().phase!=="active")d.fail("failed-precondition","対戦は開始されていません");
+  const room=snapshot.data();
+  await requireMember(room.teamId,uid);
+  if(!room.participantUids.includes(uid))d.fail("permission-denied","参加者ではありません");
+  const progress=getDatabase().ref("roomProgress/"+roomId+"/"+uid);
+  const now=Date.now();
+  const result=await progress.transaction(current=>{
+    if(current&&now-current.updatedAt<950)return;
+    if(current&&value<current.value)return;
+    if(current&&value-current.value>20)return;
+    return {value,updatedAt:now};
+  },undefined,false);
+  if(!result.committed)d.fail("resource-exhausted","計測送信の頻度が高すぎるか、不正な変更です");
+  return {accepted:true};
+});
+exports.getRoomProgress=callable(async({data},uid)=>{
+  const roomId=requireString(data?.roomId,"ルーム"),snap=await fs.doc("rooms/"+roomId).get();
+  if(!snap.exists)d.fail("not-found","ルームがありません");
+  const room=snap.data();await requireMember(room.teamId,uid);
+  if(!room.participantUids.includes(uid))d.fail("permission-denied","参加者ではありません");
+  const result=await getDatabase().ref("roomProgress/"+roomId).get();
+  const values=result.val()||{};
+  return {roomId,phase:room.phase,participants:room.participantUids.map(id=>({
+    uid:id,value:Number.isSafeInteger(values[id]?.value)?values[id].value:0,
+    updatedAt:values[id]?.updatedAt||null
+  }))};
+});
 exports.finishRoom=callable(async({data},uid)=>{
   const room=fs.doc("rooms/"+requireString(data?.roomId,"ルーム"));
   await fs.runTransaction(async tx=>{
