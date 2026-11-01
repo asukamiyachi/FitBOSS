@@ -46,7 +46,7 @@ struct WorkoutCameraView: View {
                 }
                 Button("完了して記録") {
                     let count = camera.result.value
-                    let previousIDs = Set(historyStore.history.sessions.map(.id))
+                    let previousIDs = Set(historyStore.history.sessions.map { $0.id })
                     if historyStore.recordPushUps(count) {
                         if let session = historyStore.history.sessions.first(where: { !previousIDs.contains($0.id) }),
                            let teamId = online.teamId {

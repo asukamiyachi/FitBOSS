@@ -388,7 +388,7 @@ private struct TeamScreen: View {
                     Text("今月").tag("month")
                 }
                 .pickerStyle(.segmented).frame(maxWidth: 260)
-                .onChange(of: rankingPeriod) { next in online.loadTeam(period: next) }
+                .onChange(of: rankingPeriod) { _, next in online.loadTeam(period: next) }
                 if online.ranking.isEmpty {
                     Text("集計可能な記録はありません。").foregroundStyle(.secondary)
                 }

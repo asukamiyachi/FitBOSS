@@ -65,7 +65,7 @@ struct RoomProgress: Identifiable {
                 self.signedIn = user != nil && user?.providerData.contains(where: { $0.providerID == "google.com" }) == true
                 if self.signedIn, let uid = user?.uid {
                     self.startPresence(uid: uid)
-                    self.teamId = UserDefaults.standard.string(forKey: "fitboss.lastTeamID.(uid)")
+                    self.teamId = UserDefaults.standard.string(forKey: "fitboss.lastTeamID." + uid + "")
                     if self.teamId != nil { self.loadTeam() }
                 }
                 else { self.teamId = nil; self.members = []; self.ranking = []; self.roomId = nil }
@@ -114,7 +114,7 @@ struct RoomProgress: Identifiable {
     }
 
     private func saveSelectedTeam() {
-        if let uid, let teamId { UserDefaults.standard.set(teamId,forKey:"fitboss.lastTeamID.(uid)") }
+        if let uid, let teamId { UserDefaults.standard.set(teamId,forKey:"fitboss.lastTeamID." + uid + "") }
     }
     func createTeam(name: String) {
         call("createTeam", ["name": name]) { result in
@@ -135,7 +135,7 @@ struct RoomProgress: Identifiable {
     func leaveTeam() {
         guard let teamId else { return }
         call("leaveTeam", ["teamId":teamId]) { _ in
-            if let uid = self.uid { UserDefaults.standard.removeObject(forKey:"fitboss.lastTeamID.(uid)") }
+            if let uid = self.uid { UserDefaults.standard.removeObject(forKey:"fitboss.lastTeamID." + uid + "") }
             self.teamId = nil; self.members = []; self.ranking = []; self.pastRooms = []; self.roomId = nil
         }
     }
