@@ -163,7 +163,7 @@ private struct HomeScreen: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 12)], spacing: 12) {
                 StatisticCard(
                     title: "継続記録",
-                    value: historyStore.history.sessions.isEmpty ? "—" : "(historyStore.history.currentWorkoutStreak())日",
+                    value: historyStore.history.sessions.isEmpty ? "—" : "\(historyStore.history.currentWorkoutStreak())日",
                     detail: "運動日数のみ／休息日最大2日で継続",
                     icon: "calendar"
                 )
@@ -195,7 +195,7 @@ private struct HomeScreen: View {
                 } else {
                     ForEach(latestSessions) { workout in
                         HStack {
-                            Text("腕立て伏せ (workout.repetitions) 回")
+                            Text("腕立て伏せ \(workout.repetitions) 回")
                             Spacer()
                             Text(workout.completedAt.formatted(date: .abbreviated, time: .shortened))
                                 .foregroundStyle(.secondary)
