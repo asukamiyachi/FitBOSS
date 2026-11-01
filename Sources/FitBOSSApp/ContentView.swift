@@ -77,9 +77,20 @@ struct ContentView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
+        .onChange(of: online.teamId) { _ in uploadPendingWorkouts() }
         .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
             if online.signedIn && online.teamId != nil {
                 online.loadTeam()
+                uploadPendingWorkouts()
+            }
+        }
+    }
+
+    private func uploadPendingWorkouts() {
+        guard online.signedIn, let teamId = online.teamId else { return }
+        for session in workoutHistory.pendingSessions(for: teamId).prefix(5) {
+            online.submitWorkout(session) {
+                workoutHistory.markSynced(sessionID: session.id, teamId: teamId)
             }
         }
     }

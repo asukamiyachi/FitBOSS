@@ -9,6 +9,8 @@ final class WorkoutHistoryStore: ObservableObject {
 
     private let defaults: UserDefaults
     private let storageKey = "fitboss.localWorkoutHistory.v1"
+    private let pendingKey = "fitboss.localUploadQueue.v1"
+    @Published private(set) var pendingUploads: [String: String] = [:]
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -22,6 +24,34 @@ final class WorkoutHistoryStore: ObservableObject {
         } else {
             history = WorkoutHistory()
         }
+        if let data = defaults.data(forKey: pendingKey) {
+            do { pendingUploads = try JSONDecoder().decode([String: String].self, from: data) }
+            catch {
+                storageError = "送信待ち記録を読み込めません。データを守るため保存を停止しています。"
+            }
+        }
+    }
+
+    func enqueue(sessionID: UUID, teamId: String) {
+        guard storageError == nil,
+              history.sessions.contains(where: { $0.id == sessionID }) else { return }
+        pendingUploads[sessionID.uuidString] = teamId
+        persistPending()
+    }
+
+    func markSynced(sessionID: UUID, teamId: String) {
+        guard pendingUploads[sessionID.uuidString] == teamId else { return }
+        pendingUploads.removeValue(forKey: sessionID.uuidString)
+        persistPending()
+    }
+
+    func pendingSessions(for teamId: String) -> [SavedWorkout] {
+        history.sessions.filter { pendingUploads[$0.id.uuidString] == teamId }
+    }
+
+    private func persistPending() {
+        do { defaults.set(try JSONEncoder().encode(pendingUploads), forKey: pendingKey) }
+        catch { storageError = "送信待ち記録の保存に失敗しました。" }
     }
 
     /// Returns false when no positive-count exercise exists or storage is not safe to overwrite.
@@ -46,7 +76,12 @@ final class WorkoutHistoryStore: ObservableObject {
         guard storageError == nil else { return false }
         var next = history
         guard next.removeSession(id: id) else { return false }
-        return save(next)
+        let removed = save(next)
+        if removed {
+            pendingUploads.removeValue(forKey: id.uuidString)
+            persistPending()
+        }
+        return removed
     }
 
     private func save(_ updated: WorkoutHistory) -> Bool {

@@ -5,6 +5,7 @@ import SwiftUI
 /// Local-only experimental camera view; its capture lifetime is scoped to the training page.
 struct WorkoutCameraView: View {
     @ObservedObject var historyStore: WorkoutHistoryStore
+    @ObservedObject var online: OnlineService
     @StateObject private var camera = CameraManager()
     @State private var completionMessage: String?
 
@@ -45,7 +46,15 @@ struct WorkoutCameraView: View {
                 }
                 Button("完了して記録") {
                     let count = camera.result.value
+                    let previousIDs = Set(historyStore.history.sessions.map(.id))
                     if historyStore.recordPushUps(count) {
+                        if let session = historyStore.history.sessions.first(where: { !previousIDs.contains($0.id) }),
+                           let teamId = online.teamId {
+                            historyStore.enqueue(sessionID: session.id, teamId: teamId)
+                            online.submitWorkout(session) {
+                                historyStore.markSynced(sessionID: session.id, teamId: teamId)
+                            }
+                        }
                         camera.stop()
                         camera.resetCounter()
                         completionMessage = "腕立て伏せ \(count) 回をこのMacに保存しました。"
@@ -97,5 +106,8 @@ struct WorkoutCameraView: View {
         .navigationTitle("トレーニング")
         .onAppear { camera.requestAndStart() }
         .onDisappear { camera.stop() }
+        .onReceive(camera.$result) { result in
+            online.sendRoomProgress(result.value)
+        }
     }
 }

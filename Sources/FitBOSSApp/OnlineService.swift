@@ -63,7 +63,11 @@ struct RoomProgress: Identifiable {
                 self.stopPresence()
                 self.uid = user?.uid
                 self.signedIn = user != nil && user?.providerData.contains(where: { $0.providerID == "google.com" }) == true
-                if self.signedIn, let uid = user?.uid { self.startPresence(uid: uid) }
+                if self.signedIn, let uid = user?.uid {
+                    self.startPresence(uid: uid)
+                    self.teamId = UserDefaults.standard.string(forKey: "fitboss.lastTeamID.(uid)")
+                    if self.teamId != nil { self.loadTeam() }
+                }
                 else { self.teamId = nil; self.members = []; self.ranking = []; self.roomId = nil }
             }
         }
@@ -109,10 +113,14 @@ struct RoomProgress: Identifiable {
         #endif
     }
 
+    private func saveSelectedTeam() {
+        if let uid, let teamId { UserDefaults.standard.set(teamId,forKey:"fitboss.lastTeamID.(uid)") }
+    }
     func createTeam(name: String) {
         call("createTeam", ["name": name]) { result in
             self.teamId = result["teamId"] as? String
             self.teamInviteCode = result["inviteCode"] as? String
+            self.saveSelectedTeam()
             self.loadTeam()
         }
     }
@@ -120,12 +128,14 @@ struct RoomProgress: Identifiable {
         call("joinTeam", ["inviteCode": code]) { result in
             self.teamId = result["teamId"] as? String
             self.teamInviteCode = nil
+            self.saveSelectedTeam()
             self.loadTeam()
         }
     }
     func leaveTeam() {
         guard let teamId else { return }
         call("leaveTeam", ["teamId":teamId]) { _ in
+            if let uid = self.uid { UserDefaults.standard.removeObject(forKey:"fitboss.lastTeamID.(uid)") }
             self.teamId = nil; self.members = []; self.ranking = []; self.pastRooms = []; self.roomId = nil
         }
     }
@@ -207,13 +217,13 @@ struct RoomProgress: Identifiable {
             self.roomPhase = "waiting"
         }
     }
-    func submitWorkout(_ session: SavedWorkout) {
+    func submitWorkout(_ session: SavedWorkout, onSynced: (() -> Void)? = nil) {
         guard let teamId else { return }
         call("submitWorkout", [
             "teamId":teamId, "sessionId":session.id.uuidString.lowercased(),
             "exerciseId":session.exerciseID, "repetitions":session.repetitions,
             "completedAt":Int(session.completedAt.timeIntervalSince1970*1000)
-        ]) { _ in self.loadTeam() }
+        ]) { _ in onSynced?(); self.loadTeam() }
     }
     private func call(_ name: String, _ data: [String: Any], onSuccess: @escaping ([String: Any])->Void) {
         guard signedIn else { errorMessage = "Googleログインが必要です。"; return }
