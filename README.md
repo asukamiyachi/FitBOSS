@@ -21,12 +21,13 @@ macOS native SwiftUI / AVFoundation / Apple Vision experimental exercise tracker
 ```sh
 git clone https://github.com/asukamiyachi/FitBOSS.git
 cd FitBOSS
+git switch feat/camera-pose-foundation
 swift test
 ./Scripts/build-app.sh
 open .build/FitBOSS.app
 ```
 
-The launchable .app bundle must be built on **macOS**. The script generates an ad-hoc-signed local test application; distributing a production app requires proper Apple signing/notarization. The default macOS green window control enters full screen. A camera can be changed via the picker. Use the "カウントリセット" button to reset the experimental count.
+This branch contains the unmerged camera laboratory. The default `main` branch does not yet contain this app. The launchable .app bundle must be built on **macOS**. The script generates an ad-hoc-signed local test application; distributing a production app requires proper Apple signing/notarization. The default macOS green window control enters full screen. A camera can be changed via the picker. Use the "カウントリセット" button to reset the experimental count.
 
 If camera permission is denied, open System Settings > Privacy & Security > Camera. A stable side-angle camera position gives this 2D elbow-angle heuristic its best chance; try moving slowly and comfortably.
 
