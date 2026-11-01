@@ -53,3 +53,32 @@ jobs:
       - name: Build local macOS test app
         if: hashFiles('Package.swift') != ''
         run: bash Scripts/build-app.sh
+
+  backend-contract:
+    name: Firebase backend contract (no deployment)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref_to_test || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check JS syntax and backend domain tests
+        run: |
+          if [ -f functions/src/index.js ]; then
+            node --check functions/src/index.js
+            node --check functions/src/domain.js
+            node --check functions/tests/rules.test.cjs
+            node --test functions/tests/domain.test.cjs
+          fi
+      - name: Deny accidental default Firebase deploy
+        run: |
+          python3 - <<'PY'
+          import json
+          with open('.firebaserc') as f:
+              aliases = json.load(f)['projects']
+          assert 'default' not in aliases
+          PY

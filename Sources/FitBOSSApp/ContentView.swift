@@ -375,7 +375,7 @@ private struct TeamScreen: View {
                         Spacer()
                         TimelineView(.periodic(from: .now, by: 60)) { timeline in
                             Text(member.label(asOf: timeline.date))
-                                .foregroundStyle(member.online ? .green : .secondary)
+                                .foregroundStyle(member.online ? Color.green : Color.secondary)
                         }
                     }
                 }
