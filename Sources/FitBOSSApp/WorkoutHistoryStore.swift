@@ -7,20 +7,18 @@ final class WorkoutHistoryStore: ObservableObject {
     @Published private(set) var history: WorkoutHistory
     @Published private(set) var storageError: String?
 
-    private let defaults: UserDefaults
-    private let storageKey = "fitboss.localWorkoutHistory.v1"
+    private let persistence: WorkoutHistoryPersistence?
 
-    init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-        if let data = defaults.data(forKey: storageKey) {
-            do {
-                history = try JSONDecoder().decode(WorkoutHistory.self, from: data)
-            } catch {
-                history = WorkoutHistory()
-                storageError = "保存済みの運動記録を読み込めません。データを上書きしないため保存を停止しています。"
-            }
-        } else {
-            history = WorkoutHistory()
+    init(persistence: WorkoutHistoryPersistence? = nil) {
+        do {
+            let storage = try persistence ?? WorkoutHistoryPersistence.appStorage()
+            let saved = try storage.load()
+            self.persistence = storage
+            self.history = saved
+        } catch {
+            self.persistence = nil
+            self.history = WorkoutHistory()
+            self.storageError = "運動記録を読み込めないか、旧データを移行できません。元のデータを保護するため保存を停止しています。"
         }
     }
 
@@ -50,13 +48,14 @@ final class WorkoutHistoryStore: ObservableObject {
     }
 
     private func save(_ updated: WorkoutHistory) -> Bool {
+        guard let persistence else { return false }
         do {
-            let data = try JSONEncoder().encode(updated)
-            defaults.set(data, forKey: storageKey)
+            try persistence.save(updated)
             history = updated
             return true
         } catch {
-            storageError = "運動記録の保存に失敗しました。"
+            // Keep the previous in-memory history and on-disk file unchanged.
+            storageError = "運動記録を保存できませんでした。元の記録を保持し、これ以上の保存を停止しました。"
             return false
         }
     }
