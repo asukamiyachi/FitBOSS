@@ -52,7 +52,7 @@ struct WorkoutCalendarView: View {
                         Button { shiftMonth(by: -1) } label: { Image(systemName: "chevron.left") }
                             .accessibilityLabel("前の月")
                         Spacer()
-                        Text(firstDay.formatted(.dateTime.year().month(.wide)))
+                        Text(WorkoutDay.monthTitle(for: firstDay))
                             .font(.title2.bold())
                         Spacer()
                         Button { shiftMonth(by: 1) } label: { Image(systemName: "chevron.right") }
@@ -81,7 +81,7 @@ struct WorkoutCalendarView: View {
                 .background(Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
 
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(selectedDay.formatted(.dateTime.year().month().day()))
+                    Text(WorkoutDay.dateTitle(for: selectedDay))
                         .font(.title3.bold())
                     if selectedSessions.isEmpty {
                         Text(selectedIsRest ? "休息日として記録しています。" : "この日の運動記録はありません。")
@@ -91,7 +91,7 @@ struct WorkoutCalendarView: View {
                             HStack {
                                 Label("腕立て伏せ \(workout.repetitions) 回（試験計測）", systemImage: "figure.strengthtraining.traditional")
                                 Spacer()
-                                Text(workout.completedAt.formatted(date: .omitted, time: .shortened))
+                                Text(WorkoutDay.timeTitle(for: workout.completedAt))
                                     .foregroundStyle(.secondary)
                                 Button(role: .destructive) {
                                     pendingDeletion = workout.id
