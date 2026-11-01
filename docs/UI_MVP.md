@@ -9,8 +9,9 @@ User approved UI scaffolding on 2026-11-02.
 
 | View | Included in UI | Actual behavior |
 | --- | --- | --- |
-| ホーム | Streak, battle summary, team, badge, recent activity | Empty real-data states, functional navigation; adaptive card grid |
-| トレーニング | Camera lab and push-up prototype | Preserved working camera behavior from old ContentView |
+| ホーム | Streak, battle summary, team, badge, recent activity | Locally persisted workouts shown as real recent activity/streak, otherwise empty states; adaptive grid |
+| トレーニング | Camera lab and push-up prototype | Experimental camera behavior preserved; explicit completion button saves positive rep counts locally |
+| 履歴カレンダー | Workout and rest-day marks, local session list and deletion | On-device session/rest persistence; no cloud sync |
 | 対戦 | Room code, room creation, battle history | Invite-code input and join/create are disabled until secure Firebase service exists |
 | チーム | Invite code, online teammates, team ranking | Invite-code input and membership creation disabled; no pretend presence |
 | 実績 | Four illustrative badge types | All labeled unearned; no fake awards |
@@ -18,8 +19,8 @@ User approved UI scaffolding on 2026-11-02.
 
 ### Architecture and guardrails
 
-- \`ContentView.swift\` owns navigation and simple read-only placeholder screens.
-- \`WorkoutCameraView.swift\` owns the unchanged experimental camera lab; \`CameraManager\` stays local and exists only while the workout page is shown.
+- \`ContentView.swift\` owns navigation, local-history dashboard, and read-only online placeholders.
+- \`WorkoutCameraView.swift\` owns experimental camera capture and the explicit save action. \`WorkoutHistoryStore\` persists completed workout summaries and rest days only to this Mac; \`WorkoutCalendarView\` renders and deletes these records.
 - No Firebase SDK, online connections, fake leaderboard/presence, hardcoded user records, analytics or outgoing camera data.
 - Never claim an online team/match exists until confirmed by an authenticated backend.
 - Do not equate client-computed repetition count with verified movement or clinical quality.
@@ -30,12 +31,13 @@ User approved UI scaffolding on 2026-11-02.
 
 ### Manual acceptance checklist
 
-1. Launch app on macOS 14+; verify sidebar navigates all six destinations.
+1. Launch app on macOS 14+; verify sidebar navigates all seven destinations.
 2. Home's three buttons open the corresponding screens.
-3. First launch: all history/metrics remain empty; **no fabricated numbers**.
+3. First launch: history/metrics are empty; **no fabricated numbers**. Save a positive-count workout, confirm its count and streak appear on Home and calendar, then restart the app and verify local persistence.
 4. Join/create buttons, invite code inputs and Google login cannot submit or accept entries while backend absent.
 5. Switching to Training starts camera and preserves preview, skeleton, push-up count, camera picker, error and reset behavior.
 6. Navigating away stops capture, avoiding persistent background camera operation.
 7. Match and team panels describe online status accurately and don't imply workout/camera visibility.
 8. Resize the window to its minimum width; verify the home statistic cards reflow rather than shrinking into unreadable columns.
-9. \`swift test\` and \`bash Scripts/build-app.sh\` pass on a macOS runner. Hardware camera / permission tests remain manual.
+9. Mark a past date as rest, confirm a workout date cannot also be marked rest; delete a saved session only after confirming the dialog. Verify stored summaries show the numeric count rather than a literal interpolation placeholder.
+10. \`swift test\` and \`bash Scripts/build-app.sh\` pass on a macOS runner. Hardware camera / permission tests remain manual.
