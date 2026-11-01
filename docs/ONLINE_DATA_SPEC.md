@@ -2,6 +2,8 @@
 
 **Design only. Not implemented or deployed.** Work independently of camera PR #1 and keep GitHub Actions **manual only**.
 
+**Authentication decision:** Google Sign-In only for cloud features in this development stage, using Firebase Auth `uid` as the canonical identity. Local camera/solo use does not require a login. Never grant team/room access based only on Google email or display name. Reassess alternative provider requirements before Mac App Store submission.
+
 ## Two flows
 
 ### A. Solo workout
