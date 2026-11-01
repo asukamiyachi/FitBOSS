@@ -6,7 +6,7 @@ macOS native SwiftUI / AVFoundation / Apple Vision experimental exercise tracker
 
 ## Scope boundaries
 
-- **Implemented:** Home, Training, History Calendar, Battle, Team, Achievements and Settings navigation; home action links; explicit saving/deleting of local workout sessions, recorded rest days, exercise-day streaks, local persistence using UserDefaults, camera selection, Apple Vision pose inference (best-effort 12fps), skeleton, counter and diagnostics, framework-independent core tests, experiment checklist.
+- **Implemented:** Home, Training, History Calendar, Battle, Team, Achievements and Settings navigation; home action links; explicit saving/deleting of local workout sessions, recorded rest days, exercise-day streaks, atomic on-device JSON persistence in Application Support (with legacy UserDefaults migration), camera selection, Apple Vision pose inference (best-effort 12fps), skeleton, counter and diagnostics, framework-independent core tests, experiment checklist.
 - **Not implemented:** working Google login, online matches, Firebase app SDK/cloud sync, team registration, leaderboards, visual game screens, character designs, achieved badges, sit-ups, squats, planks, hold timers.
 - These future areas will be built in separate branches/modules while pose evaluation is tested. See [UI MVP](docs/UI_MVP.md) and [online contract](docs/ONLINE_DATA_SPEC.md).
 
@@ -29,6 +29,10 @@ open .build/FitBOSS.app
 This camera lab is an experimental prototype, not a finished product. GitHub Actions automatically runs `swift test` and the app build on **macOS** for pull requests and pushes to `main`. A launchable .app bundle must be built on macOS; CI does not test camera hardware. The script generates an ad-hoc-signed local test application; distributing a production app requires proper Apple signing/notarization. The default macOS green window control enters full screen. A camera can be changed via the picker. Use the "カウントリセット" button to reset the experimental count.
 
 If camera permission is denied, open System Settings > Privacy & Security > Camera. A stable side-angle camera position gives this 2D elbow-angle heuristic its best chance; try moving slowly and comfortably.
+
+## Local workout history
+
+Completed workout summaries and explicit rest days are stored as a JSON file under the user's **Application Support/FitBOSS** directory. Updates use atomic file replacement so the previous file remains intact if writing fails. Legacy UserDefaults history is migrated only after the file is successfully saved. If loading or saving fails, further writes are disabled rather than silently overwriting data; the UI shows a storage error. Workout calendar dates, session times, and streak calculations consistently use **Asia/Tokyo (JST)** even if the Mac displays another time zone. This file is not synchronized with Firebase.
 
 ## Privacy and measurement limitations
 
