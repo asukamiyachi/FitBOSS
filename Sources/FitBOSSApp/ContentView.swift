@@ -381,13 +381,13 @@ private struct TeamScreen: View {
                 if online.ranking.isEmpty {
                     Text("集計可能な記録はありません。").foregroundStyle(.secondary)
                 }
-                ForEach(Array(online.ranking.enumerated()), id: \.element.uid) { index, item in
+                ForEach(Array(online.ranking.indices), id: \.self) { index in
                     HStack {
                         Text("\(index + 1)位")
                             .font(.subheadline.monospacedDigit())
-                        Text(item.uid == online.uid ? "自分" : "メンバー \(item.uid.prefix(8))")
+                        Text(online.ranking[index].uid == online.uid ? "自分" : "メンバー \(online.ranking[index].uid.prefix(8))")
                         Spacer()
-                        Text("\(item.participationDays)日").monospacedDigit()
+                        Text("\(online.ranking[index].participationDays)日").monospacedDigit()
                     }
                 }
                 Text("運動に参加した日数を集計します。1日に複数回運動しても1日分、休息日は減点しません。動作の正確さを保証するランキングではありません。")

@@ -10,12 +10,12 @@ import FirebaseDatabase
 import GoogleSignIn
 #endif
 
-private struct PastRoom: Identifiable {
+struct PastRoom: Identifiable {
     let roomId: String
     let participantCount: Int
     var id: String { roomId }
 }
-private struct RoomProgress: Identifiable {
+struct RoomProgress: Identifiable {
     let uid: String
     let repetitions: Int
     var id: String { uid }
