@@ -10,6 +10,16 @@ import FirebaseDatabase
 import GoogleSignIn
 #endif
 
+private struct PastRoom: Identifiable {
+    let roomId: String
+    let participantCount: Int
+    var id: String { roomId }
+}
+private struct RoomProgress: Identifiable {
+    let uid: String
+    let repetitions: Int
+    var id: String { uid }
+}
 /// API access is gated by Google auth and trusted callable functions.
 @MainActor final class OnlineService: ObservableObject {
     @Published private(set) var configured = false
@@ -22,7 +32,9 @@ import GoogleSignIn
     @Published private(set) var roomPhase: String?
     @Published private(set) var members: [TeamPresence] = []
     @Published private(set) var ranking: [TeamRank] = []
-    @Published private(set) var pastRooms: [(roomId: String, participantCount: Int)] = []
+    @Published private(set) var pastRooms: [PastRoom] = []
+    @Published private(set) var roomProgress: [RoomProgress] = []
+    private var lastProgressSubmission: Date = .distantPast
     @Published private(set) var errorMessage: String?
     @Published private(set) var isWorking = false
 
@@ -138,7 +150,7 @@ import GoogleSignIn
             let rows = result["rooms"] as? [[String: Any]] ?? []
             self.pastRooms = rows.compactMap { row in
                 guard let id = row["roomId"] as? String else { return nil }
-                return (roomId:id,participantCount:(row["participantUids"] as? [String] ?? []).count)
+                return PastRoom(roomId:id,participantCount:(row["participantUids"] as? [String] ?? []).count)
             }
         }
     }
@@ -148,18 +160,44 @@ import GoogleSignIn
             self.roomId = result["roomId"] as? String
             self.roomInviteCode = result["inviteCode"] as? String
             self.roomPhase = "waiting"
+            self.roomProgress = []
         }
     }
     func joinRoom(code: String) {
         call("joinRoom", ["inviteCode":code]) { result in
             self.roomId = result["roomId"] as? String
             self.roomInviteCode = nil; self.roomPhase = "waiting"
+            self.roomProgress = []
         }
+    }
+    func startRoom() {
+        guard let roomId else { return }
+        call("startRoom", ["roomId": roomId]) { _ in self.roomPhase = "active"; self.refreshRoomProgress() }
+    }
+    func refreshRoomProgress() {
+        guard let roomId else { return }
+        call("getRoomProgress", ["roomId": roomId]) { result in
+            self.roomPhase = result["phase"] as? String
+            let rows = result["participants"] as? [[String: Any]] ?? []
+            self.roomProgress = rows.compactMap { row in
+                guard let uid = row["uid"] as? String,
+                      let value = row["value"] as? Int else { return nil }
+                return RoomProgress(uid: uid, repetitions: value)
+            }
+        }
+    }
+    func sendRoomProgress(_ value: Int) {
+        guard roomPhase == "active", roomId != nil else { return }
+        let now = Date()
+        guard now.timeIntervalSince(lastProgressSubmission) >= 1.1 else { return }
+        lastProgressSubmission = now
+        guard let roomId else { return }
+        call("updateRoomProgress", ["roomId":roomId, "value":value]) { _ in }
     }
     func finishRoom() {
         guard let roomId else { return }
         call("finishRoom", ["roomId":roomId]) { _ in
-            self.roomPhase = "finished"; self.loadTeam()
+            self.roomPhase = "finished"; self.refreshRoomProgress(); self.loadTeam()
         }
     }
     func rematch(roomId: String) {
