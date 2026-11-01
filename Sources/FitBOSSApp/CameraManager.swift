@@ -135,6 +135,7 @@ final class CameraManager: NSObject, ObservableObject {
                     self.isStarting = false
                     self.isRunning = false
                     self.devices = []
+                    self.selectedDeviceID = ""
                     self.errorMessage = "利用できるカメラがありません。外部カメラやContinuity Cameraを確認してください。"
                 }
                 return
@@ -189,10 +190,15 @@ final class CameraManager: NSObject, ObservableObject {
                 }
             } catch {
                 let running = self.session.isRunning
+                // Restore the picker to the camera that actually remains attached.
+                let activeDeviceID = self.session.inputs
+                    .compactMap { ($0 as? AVCaptureDeviceInput)?.device.uniqueID }
+                    .first ?? ""
                 DispatchQueue.main.async {
                     guard self.requestRevision == revision else { return }
                     self.isStarting = false
                     self.isRunning = running
+                    self.selectedDeviceID = activeDeviceID
                     self.errorMessage = "カメラ初期化エラー: \(error.localizedDescription)"
                 }
             }
