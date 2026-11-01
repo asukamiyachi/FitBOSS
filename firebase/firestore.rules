@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // TEMPORARY: deny every client read/write until team and session permissions
+    // are implemented and verified against the Firebase Emulator Suite.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
