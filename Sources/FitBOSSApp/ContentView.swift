@@ -146,7 +146,7 @@ private struct HomeScreen: View {
             title: "ホーム",
             subtitle: "自分のペースで運動し、仲間と進捗を共有しよう。"
         ) {
-            HStack(alignment: .top, spacing: 12) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 12)], spacing: 12) {
                 StatisticCard(title: "継続記録", value: "—", detail: "履歴の保存後に表示", icon: "calendar")
                 StatisticCard(title: "対戦記録", value: "—", detail: "対戦履歴の連携後に表示", icon: "bolt.fill")
                 StatisticCard(title: "チーム", value: "未参加", detail: "Googleログイン連携後に参加", icon: "person.3")
@@ -195,6 +195,7 @@ private struct BattleScreen: View {
         ) {
             InformationPanel(title: "ルームに参加", icon: "person.2.wave.2") {
                 TextField("招待コードを入力", text: $roomCode)
+                    .disabled(true)
                     .textFieldStyle(.roundedBorder)
                     .frame(maxWidth: 360)
                 Button("ルームに参加") {}
@@ -236,6 +237,7 @@ private struct TeamScreen: View {
         ) {
             InformationPanel(title: "チームに参加", icon: "person.badge.plus") {
                 TextField("チームの招待コード", text: $invitationCode)
+                    .disabled(true)
                     .textFieldStyle(.roundedBorder)
                     .frame(maxWidth: 360)
                 Button("参加する") {}
