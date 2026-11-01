@@ -1,6 +1,6 @@
 # FitBOSS online contract — proposed MVP architecture
 
-**Design only. Not implemented or deployed.** Work independently of camera PR #1 and keep GitHub Actions **manual only**.
+**Design only. Not implemented or deployed.** Work independently of camera PR #1. GitHub Actions now runs macOS CI automatically on pull requests and pushes to `main`; CI does not deploy Firebase.
 
 **Authentication decision:** Google Sign-In only for cloud features in this development stage, using Firebase Auth `uid` as the canonical identity. Local camera/solo use does not require a login. Never grant team/room access based only on Google email or display name. Reassess alternative provider requirements before Mac App Store submission.
 
