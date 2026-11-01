@@ -102,3 +102,16 @@ jobs:
         run: npm install --prefix functions --no-package-lock --ignore-scripts
       - name: Run local Firestore and Realtime Database Rules tests
         run: npx --yes firebase-tools@14 emulators:exec --project demo-fitboss-rules --only firestore,database "cd functions && npm run test:rules"
+
+  native-firebase-compile:
+    name: macOS official Firebase SDK compile (no config, no deploy)
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Compile native Firebase and Google Sign-In integration
+        env:
+          FITBOSS_FIREBASE_ENABLED: "1"
+        run: swift build -c debug --product FitBOSSApp
