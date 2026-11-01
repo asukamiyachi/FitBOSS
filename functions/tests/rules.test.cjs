@@ -2,13 +2,15 @@
 const test=require("node:test");
 const assert=require("node:assert/strict");
 const fs=require("node:fs");
+const path=require("node:path");
+const rulesFile=(name)=>fs.readFileSync(path.join(__dirname,"..","..","firebase",name),"utf8");
 const {initializeTestEnvironment,assertFails,assertSucceeds}=require("@firebase/rules-unit-testing");
 let env;
 test.before(async()=>{
   env=await initializeTestEnvironment({
     projectId:"demo-fitboss-rules",
-    database:{rules:fs.readFileSync("firebase/database.rules.json","utf8")},
-    firestore:{rules:fs.readFileSync("firebase/firestore.rules","utf8")}
+    database:{rules:rulesFile("database.rules.json")},
+    firestore:{rules:rulesFile("firestore.rules")}
   });
 });
 test.after(async()=>{if(env)await env.cleanup()});
