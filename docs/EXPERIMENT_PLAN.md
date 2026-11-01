@@ -37,4 +37,4 @@ Test normal speed, slow movement, partial elbow bends, temporary occlusion and l
 ## Build and test status
 
 - Linux can compile/test only platform-independent `FitBOSSCore` with `swift test`.
-- macOS frameworks, actual capture, permissions, preview, full-screen and code signing require Xcode/macOS testing.
+- GitHub Actions macOS-15 successfully ran 9 core tests and built the ad-hoc-signed app on 2026-11-02. Actual capture, permissions, preview alignment, full-screen and camera-switch behavior still require testing on a Mac with a real camera.
