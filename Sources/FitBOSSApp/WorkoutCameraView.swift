@@ -48,7 +48,7 @@ struct WorkoutCameraView: View {
                     if historyStore.recordPushUps(count) {
                         camera.stop()
                         camera.resetCounter()
-                        completionMessage = "腕立て伏せ (count) 回をこのMacに保存しました。"
+                        completionMessage = "腕立て伏せ \(count) 回をこのMacに保存しました。"
                     } else {
                         completionMessage = historyStore.storageError ?? "保存できませんでした。1回以上計測してください。"
                     }
