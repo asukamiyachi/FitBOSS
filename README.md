@@ -2,12 +2,12 @@
 
 macOS native SwiftUI / AVFoundation / Apple Vision experimental exercise tracker.
 
-**Current phase:** a native SwiftUI six-screen UI shell around the working experimental camera/pose tracker. The Home, Battle, Team, Achievements and Settings screens are **presentation only**; no Google authentication, Firestore/Realtime Database app SDK, score history, team join, badge progression or online play is wired yet. No fabricated records are displayed.
+**Current phase:** a native SwiftUI seven-screen prototype with camera/pose tracking and **local-only workout history**. Home can show saved push-up sessions and exercise-day streaks, and a history calendar records workouts and rest days on this Mac. Battle, Team, Achievements and Settings are presentation-only; no Google authentication, Firebase app SDK, team join, badge progression or online play is wired yet. No fabricated records are displayed.
 
 ## Scope boundaries
 
-- **Implemented:** Home, Training, Battle, Team, Achievements and Settings navigation; home action links; local camera permission + built-in/external/Continuity camera selection, preview, Vision pose inference (best-effort 12fps), skeleton, counter and diagnostics, framework-independent core, 9 synthetic unit tests, experiment checklist.
-- **Not implemented:** working Google login, online matches, Firebase app SDK, team registration, leaderboards, visual game screens, character designs, data storage, achieved badges, sit-ups, squats, planks, hold timers.
+- **Implemented:** Home, Training, History Calendar, Battle, Team, Achievements and Settings navigation; home action links; explicit saving/deleting of local workout sessions, recorded rest days, exercise-day streaks, local persistence using UserDefaults, camera selection, Apple Vision pose inference (best-effort 12fps), skeleton, counter and diagnostics, framework-independent core tests, experiment checklist.
+- **Not implemented:** working Google login, online matches, Firebase app SDK/cloud sync, team registration, leaderboards, visual game screens, character designs, achieved badges, sit-ups, squats, planks, hold timers.
 - These future areas will be built in separate branches/modules while pose evaluation is tested. See [UI MVP](docs/UI_MVP.md) and [online contract](docs/ONLINE_DATA_SPEC.md).
 
 ## macOS requirements
