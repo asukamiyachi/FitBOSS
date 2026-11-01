@@ -30,3 +30,11 @@ The ExerciseEvaluator protocol supports both `repetitions` and `seconds`; hold a
 - Tracking loss discards the partial repetition, not previously completed counts.
 - View/capture orientation and overlay alignment need real-camera testing, especially Continuity Camera and mirrored sources.
 - No local history, authentication, network or game functionality.
+
+## Review corrections (2026-11-02)
+
+- Ignore delayed frame callbacks as soon as camera capture stops or the input changes. Pending permissions and configuration completions use a main-thread revision guard.
+- On camera input changes, create the replacement input before removing the old input and restore the previous input if the replacement cannot be attached.
+- Keep one elbow/arm selected through a partial repetition; drop incomplete repetitions when the tracked arm disappears or frame timestamps jump.
+- Additional synthetic tests cover confidence-driven arm switching, tracked-arm dropout, and long frame gaps. These are core tests; **macOS compilation and live camera behavior remain unverified**.
+- The preview-layer point conversion uses an Apple API that accounts for video gravity. Image rotation, front-camera mirroring, and Continuity Camera still need real-hardware validation.

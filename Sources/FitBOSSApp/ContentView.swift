@@ -9,7 +9,7 @@ struct ContentView: View {
         switch camera.result.phase {
         case .searching: "姿勢を認識中 — カメラに上半身を映してください"
         case .ready: "開始姿勢を検出"
-        case .lowering: "肘を伸ばす動作を検出中"
+        case .lowering: "肘を曲げた状態を検出中"
         case .rising: "動作を追跡中"
         }
     }
@@ -35,6 +35,7 @@ struct ContentView: View {
                     if camera.isRunning { camera.stop() }
                     else { camera.requestAndStart() }
                 }
+                .disabled(camera.isStarting)
                 Button("カウントリセット") { camera.resetCounter() }
             }
             .padding(18)

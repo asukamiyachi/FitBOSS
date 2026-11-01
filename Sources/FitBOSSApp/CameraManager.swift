@@ -30,6 +30,7 @@ final class CameraManager: NSObject, ObservableObject {
     @Published private(set) var pose: PoseFrame?
     @Published private(set) var result: ExerciseResult
     @Published private(set) var isRunning = false
+    @Published private(set) var isStarting = false
     @Published private(set) var errorMessage: String?
 
     private let sessionQueue = DispatchQueue(label: "fitboss.camera.session", qos: .userInitiated)
@@ -37,6 +38,8 @@ final class CameraManager: NSObject, ObservableObject {
     private let processor = FrameProcessor()
     private let output = AVCaptureVideoDataOutput()
     private var outputAttached = false
+    // Main-thread revision invalidates late permission prompts and camera start completions.
+    private var requestRevision = 0
     private var evaluator = PushUpEvaluator()
 
     override init() {
@@ -44,31 +47,53 @@ final class CameraManager: NSObject, ObservableObject {
         self.result = initial.process(nil)
         super.init()
         processor.onPose = { [weak self] pose in
-            DispatchQueue.main.async { [weak self] in self?.consume(pose) }
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.isRunning && !self.isStarting else { return }
+                self.consume(pose)
+            }
         }
     }
 
     func requestAndStart() {
+        guard !isRunning && !isStarting else { return }
+        requestRevision &+= 1
+        let revision = requestRevision
+        isStarting = true
+        errorMessage = nil
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
-            configureAndStart()
+            configureAndStart(revision: revision)
         case .notDetermined:
             AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
-                DispatchQueue.main.async {
-                    if granted { self?.configureAndStart() }
-                    else { self?.errorMessage = "カメラへのアクセスが許可されていません。システム設定で許可してください。" }
+                DispatchQueue.main.async { [weak self] in
+                    guard let self, self.requestRevision == revision else { return }
+                    if granted {
+                        self.configureAndStart(revision: revision)
+                    } else {
+                        self.isStarting = false
+                        self.errorMessage = "カメラへのアクセスが許可されていません。システム設定で許可してください。"
+                    }
                 }
             }
         case .denied, .restricted:
+            isStarting = false
             errorMessage = "カメラへのアクセスが許可されていません。システム設定 → プライバシーとセキュリティ → カメラを確認してください。"
         @unknown default:
+            isStarting = false
             errorMessage = "カメラの権限を確認できませんでした。"
         }
     }
 
     func selectCamera(id: String) {
+        guard selectedDeviceID != id else { return }
         selectedDeviceID = id
-        if isRunning { configureAndStart() }
+        guard isRunning || isStarting else { return }
+        requestRevision &+= 1
+        let revision = requestRevision
+        isStarting = true
+        isRunning = false
+        consume(nil) // Do not continue a partial repetition across camera changes.
+        configureAndStart(revision: revision)
     }
 
     func resetCounter() {
@@ -77,12 +102,12 @@ final class CameraManager: NSObject, ObservableObject {
     }
 
     func stop() {
+        requestRevision &+= 1
+        isStarting = false
+        isRunning = false
+        consume(nil) // Immediately invalidate delayed Vision callbacks.
         sessionQueue.async {
             if self.session.isRunning { self.session.stopRunning() }
-            DispatchQueue.main.async {
-                self.isRunning = false
-                self.consume(nil)
-            }
         }
     }
 
@@ -99,48 +124,75 @@ final class CameraManager: NSObject, ObservableObject {
         ).devices
     }
 
-    private func configureAndStart() {
+    private func configureAndStart(revision: Int) {
         errorMessage = nil
         let cameraID = selectedDeviceID
         sessionQueue.async {
             let cameras = self.availableDevices()
             guard let device = cameras.first(where: { $0.uniqueID == cameraID }) ?? cameras.first else {
                 DispatchQueue.main.async {
+                    guard self.requestRevision == revision else { return }
+                    self.isStarting = false
+                    self.isRunning = false
                     self.devices = []
                     self.errorMessage = "利用できるカメラがありません。外部カメラやContinuity Cameraを確認してください。"
                 }
                 return
             }
 
-            self.session.beginConfiguration()
-            self.session.sessionPreset = .hd1280x720
-            self.session.inputs.forEach { self.session.removeInput($0) }
             do {
-                let input = try AVCaptureDeviceInput(device: device)
-                guard self.session.canAddInput(input) else { throw CameraError.cannotAddInput }
-                self.session.addInput(input)
-                if !self.outputAttached {
-                    self.output.alwaysDiscardsLateVideoFrames = true
-                    self.output.setSampleBufferDelegate(self.processor, queue: self.processingQueue)
-                    guard self.session.canAddOutput(self.output) else { throw CameraError.cannotAddOutput }
-                    self.session.addOutput(self.output)
-                    self.outputAttached = true
+                // Create the replacement input *before* touching the working session.
+                let newInput = try AVCaptureDeviceInput(device: device)
+                self.session.beginConfiguration()
+                let oldInputs = self.session.inputs
+                for input in oldInputs { self.session.removeInput(input) }
+
+                var configurationError: Error?
+                if self.session.canAddInput(newInput) {
+                    self.session.addInput(newInput)
+                    if !self.outputAttached {
+                        if self.session.canAddOutput(self.output) {
+                            self.output.alwaysDiscardsLateVideoFrames = true
+                            self.session.addOutput(self.output)
+                            self.output.setSampleBufferDelegate(self.processor, queue: self.processingQueue)
+                            self.outputAttached = true
+                        } else {
+                            configurationError = CameraError.cannotAddOutput
+                        }
+                    }
+                } else {
+                    configurationError = CameraError.cannotAddInput
                 }
-                if let connection = self.output.connection(with: .video), connection.isVideoMirroringSupported {
+                if configurationError != nil {
+                    // Keep the previous camera usable when switching fails.
+                    self.session.inputs.forEach { self.session.removeInput($0) }
+                    for input in oldInputs where self.session.canAddInput(input) {
+                        self.session.addInput(input)
+                    }
+                } else if let connection = self.output.connection(with: .video),
+                          connection.isVideoMirroringSupported {
+                    connection.automaticallyAdjustsVideoMirroring = false
                     connection.isVideoMirrored = false
                 }
                 self.session.commitConfiguration()
+                if let error = configurationError { throw error }
+
                 if !self.session.isRunning { self.session.startRunning() }
+                let running = self.session.isRunning
                 DispatchQueue.main.async {
+                    guard self.requestRevision == revision else { return }
                     self.devices = cameras.map { CameraOption(id: $0.uniqueID, name: $0.localizedName) }
                     self.selectedDeviceID = device.uniqueID
-                    self.isRunning = self.session.isRunning
-                    self.errorMessage = self.session.isRunning ? nil : "カメラを開始できませんでした。"
+                    self.isStarting = false
+                    self.isRunning = running
+                    self.errorMessage = running ? nil : "カメラを開始できませんでした。"
                 }
             } catch {
-                self.session.commitConfiguration()
+                let running = self.session.isRunning
                 DispatchQueue.main.async {
-                    self.isRunning = false
+                    guard self.requestRevision == revision else { return }
+                    self.isStarting = false
+                    self.isRunning = running
                     self.errorMessage = "カメラ初期化エラー: \(error.localizedDescription)"
                 }
             }

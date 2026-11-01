@@ -20,6 +20,8 @@ public struct PushUpEvaluator: ExerciseEvaluator {
     private var downAt: TimeInterval?
     private var lastTimestamp: TimeInterval?
     private var repetitions = 0
+    // Lock the measured arm for a cycle; confidence jitter must not mix two elbow angles.
+    private var trackedArm: BodyJoint?
 
     public init() {}
 
@@ -30,10 +32,11 @@ public struct PushUpEvaluator: ExerciseEvaluator {
         downAt = nil
         lastTimestamp = nil
         repetitions = 0
+        trackedArm = nil
     }
 
     public mutating func process(_ frame: PoseFrame?) -> ExerciseResult {
-        guard let frame, let sample = bestArm(in: frame) else {
+        guard let frame else {
             abandonPartialRep()
             return report(.searching, angle: nil, confidence: 0)
         }
@@ -41,6 +44,11 @@ public struct PushUpEvaluator: ExerciseEvaluator {
            frame.timestamp <= previous || frame.timestamp - previous > maximumFrameGap {
             abandonPartialRep()
         }
+        guard let sample = bestArm(in: frame) else {
+            abandonPartialRep()
+            return report(.searching, angle: nil, confidence: 0)
+        }
+        trackedArm = sample.arm
         lastTimestamp = frame.timestamp
 
         switch position {
@@ -83,22 +91,24 @@ public struct PushUpEvaluator: ExerciseEvaluator {
         downFrames = 0
         downAt = nil
         lastTimestamp = nil
+        trackedArm = nil
     }
 
     private func report(_ phase: TrackingPhase, angle: Double?, confidence: Double) -> ExerciseResult {
         ExerciseResult(exerciseID: exerciseID, unit: unit, value: repetitions, phase: phase, angleDegrees: angle, confidence: confidence)
     }
 
-    private func bestArm(in frame: PoseFrame) -> (angle: Double, confidence: Double)? {
+    private func bestArm(in frame: PoseFrame) -> (arm: BodyJoint, angle: Double, confidence: Double)? {
         let arms: [(BodyJoint, BodyJoint, BodyJoint)] = [
             (.leftShoulder, .leftElbow, .leftWrist),
             (.rightShoulder, .rightElbow, .rightWrist)
         ]
-        return arms.compactMap { a, b, c -> (angle: Double, confidence: Double)? in
+        return arms.compactMap { a, b, c -> (arm: BodyJoint, angle: Double, confidence: Double)? in
+            guard trackedArm == nil || trackedArm == b else { return nil }
             guard let shoulder = frame[a], let elbow = frame[b], let wrist = frame[c] else { return nil }
             let confidence = min(shoulder.confidence, elbow.confidence, wrist.confidence)
             guard confidence >= minimumConfidence, let angle = Self.angle(shoulder, elbow, wrist) else { return nil }
-            return (angle, confidence)
+            return (b, angle, confidence)
         }.max(by: { $0.confidence < $1.confidence })
     }
 
