@@ -82,7 +82,7 @@ Never allow a user to set another person's `uid`, arbitrarily join rooms, increa
 - Team rankings use **weekly/monthly unique workout participation days** per member, counting no more than one exercise day per date and never subtracting for rest days. Do not sort by unlimited repetitions or clinical intensity.
 - Local workout calendar records completed push-up sessions and explicit rest days in `Asia/Tokyo`. Up to two consecutive recorded rest days can bridge an exercise-day streak without adding extra exercise days.
 - Team progress uses opted-in goals, **bounded** achievement and participation rather than encouraging unlimited repetitions. Rest days should not lower an individual's ranking.
-- Team data remains private to invited members; allow non-discoverable profiles and hiding online status.
+- Team data remains private to invited members and profiles are not publicly discoverable. Under the current no-toggle decision, online status is visible only to authorized teammates, with disclosure before joining and immediate access revocation on leaving.
 
 ## Contracts for later integration
 
