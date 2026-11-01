@@ -1,0 +1,36 @@
+# This workflow is deliberately MANUAL ONLY.
+# Do not add push, pull_request, schedule, or other automatic triggers.
+name: Manual macOS checks
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref_to_test:
+        description: "Branch, tag, or commit SHA to test"
+        required: true
+        type: string
+        default: "feat/camera-pose-foundation"
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    name: Swift tests and macOS app build
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - name: Check out selected code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref_to_test }}
+          persist-credentials: false
+      - name: Show macOS toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+      - name: Run unit tests
+        run: swift test
+      - name: Build local test app
+        run: bash Scripts/build-app.sh
