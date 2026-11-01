@@ -1,0 +1,9 @@
+.build/
+DerivedData/
+*.xcuserstate
+.DS_Store
+.swiftpm/xcode/package.xcworkspace/xcuserdata/
+*.app/
+*.dSYM/
+.env
+GoogleService-Info.plist
