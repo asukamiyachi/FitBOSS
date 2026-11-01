@@ -4,7 +4,9 @@ import SwiftUI
 
 /// Local-only experimental camera view; its capture lifetime is scoped to the training page.
 struct WorkoutCameraView: View {
+    @ObservedObject var historyStore: WorkoutHistoryStore
     @StateObject private var camera = CameraManager()
+    @State private var completionMessage: String?
 
     private var phaseText: String {
         switch camera.result.phase {
@@ -37,9 +39,30 @@ struct WorkoutCameraView: View {
                     else { camera.requestAndStart() }
                 }
                 .disabled(camera.isStarting)
-                Button("カウントリセット") { camera.resetCounter() }
+                Button("カウントリセット") {
+                    completionMessage = nil
+                    camera.resetCounter()
+                }
+                Button("完了して記録") {
+                    let count = camera.result.value
+                    if historyStore.recordPushUps(count) {
+                        camera.stop()
+                        camera.resetCounter()
+                        completionMessage = "腕立て伏せ (count) 回をこのMacに保存しました。"
+                    } else {
+                        completionMessage = historyStore.storageError ?? "保存できませんでした。1回以上計測してください。"
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(camera.result.value <= 0 || historyStore.storageError != nil)
             }
             .padding(18)
+            if let message = completionMessage {
+                Text(message)
+                    .font(.caption).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 18).padding(.vertical, 5)
+            }
             Divider()
             ZStack(alignment: .topLeading) {
                 Color.black
