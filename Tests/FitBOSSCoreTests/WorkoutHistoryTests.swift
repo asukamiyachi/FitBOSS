@@ -52,6 +52,22 @@ final class WorkoutHistoryTests: XCTestCase {
         XCTAssertEqual(h, copy)
     }
 
+    func testHistoryDisplayUsesJSTAtMidnightBoundary() throws {
+        let iso = ISO8601DateFormatter()
+        let before = try XCTUnwrap(iso.date(from: "2026-11-01T14:59:59Z"))
+        let after = try XCTUnwrap(iso.date(from: "2026-11-01T15:00:00Z"))
+
+        XCTAssertEqual(WorkoutDay.key(for: before), "2026-11-01")
+        XCTAssertEqual(WorkoutDay.key(for: after), "2026-11-02")
+        XCTAssertEqual(WorkoutDay.monthTitle(for: after), "2026年11月")
+        XCTAssertEqual(WorkoutDay.dateTitle(for: before), "2026年11月1日")
+        XCTAssertEqual(WorkoutDay.dateTitle(for: after), "2026年11月2日")
+        XCTAssertEqual(WorkoutDay.timeTitle(for: before), "23:59")
+        XCTAssertEqual(WorkoutDay.timeTitle(for: after), "00:00")
+        XCTAssertEqual(WorkoutDay.dateTimeTitle(for: before), "2026/11/01 23:59")
+        XCTAssertEqual(WorkoutDay.dateTimeTitle(for: after), "2026/11/02 00:00")
+    }
+
     func testOfflineElapsed() {
         XCTAssertEqual(OfflineElapsed.text(since: nil), "最終接続時刻は不明")
         let t = date("2026-11-03")
