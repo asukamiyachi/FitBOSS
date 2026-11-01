@@ -18,8 +18,8 @@
 2. Google Analytics: user chose to keep the project-level Analytics setting on. This does **not** mean an Analytics SDK is installed in the macOS app. Decide event collection/notice/opt-out before adding the SDK; avoid logging camera images, pose landmarks, or detailed workout health signals.
 3. **User screenshot confirmed:** The Apple app was registered under `com.asukamiyachi.FitBOSS` (matches `Resources/Info.plist` on camera PR #1), and the initial `GoogleService-Info.plist` was downloaded locally. After enabling Google as a provider, **download an updated plist**. Do not commit the downloaded file for now. Apple app settings: https://console.firebase.google.com/project/fitboss-acde2/settings/general .
 4. **Decision: Google Sign-In only. Not yet confirmed enabled:** In **Authentication → Sign-in method**, enable **Google** and select a project support email. Leave Email/Password, Anonymous, Apple, and other sign-in providers disabled for the initial private testing scope. After enabling Google, **download a fresh `GoogleService-Info.plist`** from the Apple app settings; do not commit it. macOS native integration will use `GoogleSignIn-iOS` (which also supports macOS), `FirebaseAuth`, the browser redirect URL scheme from `REVERSED_CLIENT_ID`, and Keychain entitlements/signing. Test the login flow on a real Mac before release.
-5. **Not yet confirmed:** Create **Cloud Firestore** in **Production mode** with initially closed rules. Proposed region **`asia-northeast1` (Tokyo)** for Japan-based usage if available. The instance region cannot be changed later. The un-deployed repository rules deny all.
-6. **Not yet confirmed:** Create **Realtime Database** in **locked mode**. Proposed available Asian region **`asia-southeast1` (Singapore)**. Do not assume Tokyo is available for Realtime Database; select a region from its own offered list. This instance region cannot be changed later.
+5. **User reports completed (configuration not independently verified):** Create **Cloud Firestore** in **Production mode** with initially closed rules. Proposed region **`asia-northeast1` (Tokyo)** for Japan-based usage if available. The instance region cannot be changed later. The un-deployed repository rules deny all.
+6. **User reports completed (configuration not independently verified):** Create **Realtime Database** in **locked mode**. Proposed available Asian region **`asia-southeast1` (Singapore)**. Do not assume Tokyo is available for Realtime Database; select a region from its own offered list. This instance region cannot be changed later.
 7. **Do not deploy functions or switch billing plans yet.** Plan Cloud Functions and costs only when a concrete backend action is needed. Consider budget alerts before upgrading.
 8. Project ID received: **`fitboss-acde2`**. Do not share passwords, service-account JSON or access tokens. The Apple configuration file can remain local.
 
@@ -58,9 +58,9 @@ Documentation: https://firebase.google.com/docs/ios/setup · https://firebase.go
 | --- | --- |
 | Firebase project `fitboss-acde2` | User reports created |
 | Apple app registration | Confirmed by user-provided screenshot |
-| Authentication provider | Google only **decided**, Firebase Console activation not yet verified |
-| Cloud Firestore instance | Not confirmed |
-| Realtime Database instance | Not confirmed |
+| Authentication provider | User reports Google enabled and support/public name configured; not independently verified |
+| Cloud Firestore instance | User reports created; edition, region and current rules not independently verified |
+| Realtime Database instance | User reports created; region and current rules not independently verified |
 | Firebase Swift SDK in macOS app | Not added |
 | Security Rules deployment | Not done |
 | GitHub Actions | Automatic CI for pull requests and `main` enabled on 2026-11-02; no Firebase deployment |
@@ -81,3 +81,14 @@ Official references:
 - https://firebase.google.com/docs/auth/ios/google-signin
 - https://github.com/google/GoogleSignIn-iOS
 - https://developer.apple.com/app-store/review/guidelines/
+
+## Service creation confirmation (user report, 2026-11-02)
+
+The user reports Google Authentication, Firestore and Realtime Database setup completed in the Firebase Console for `fitboss-acde2`. This is **not** independent verification of provider settings, regions, Security Rules, or billing plan.
+
+Before any live app data is written:
+1. Verify Firestore and RTDB rules deny all client access (locked/prod default) in the Firebase Console. Repository Rules have NOT been deployed.
+2. Confirm Firestore/RTDB instance locations from Console, rather than relying on recommended locations.
+3. Refresh `GoogleService-Info.plist` after enabling Google sign-in, keeping the downloaded file local.
+4. Write and test least-privilege membership/room Rules in Firebase Emulators. Never simply turn on `read/write = true`.
+5. Decide team membership, presence visibility, invitations, and result-validation contracts before building synchronization.
