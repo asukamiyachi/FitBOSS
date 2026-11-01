@@ -7,3 +7,6 @@ DerivedData/
 *.dSYM/
 .env
 GoogleService-Info.plist
+
+# Local Apple Firebase app config and generated signing entitlements
+LocalConfig/
