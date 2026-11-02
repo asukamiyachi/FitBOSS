@@ -43,3 +43,5 @@ User approved UI scaffolding on 2026-11-02.
 9. Mark a past date as rest, confirm a workout date cannot also be marked rest; delete a saved session only after confirming the dialog. Verify stored summaries show the numeric count rather than a literal interpolation placeholder.
 10. Verify local history still loads after upgrading from a UserDefaults-backed version; check error handling with corrupted history and blocked file writes. Verify date labels around JST midnight with the Mac set to another time zone.
 11. \`swift test\` and \`bash Scripts/build-app.sh\` pass on a macOS runner. Hardware camera / permission tests remain manual.
+
+- All windows share the app-owned workout history store, so opening another window does not create a stale copy that overwrites newer local sessions or rest days.

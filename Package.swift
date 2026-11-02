@@ -11,6 +11,7 @@ let package = Package(
     targets: [
         .target(name: "FitBOSSCore", path: "Sources/FitBOSSCore"),
         .executableTarget(name: "FitBOSSApp", dependencies: ["FitBOSSCore"], path: "Sources/FitBOSSApp"),
-        .testTarget(name: "FitBOSSCoreTests", dependencies: ["FitBOSSCore"], path: "Tests/FitBOSSCoreTests")
+        .testTarget(name: "FitBOSSCoreTests", dependencies: ["FitBOSSCore"], path: "Tests/FitBOSSCoreTests"),
+        .testTarget(name: "FitBOSSAppTests", dependencies: ["FitBOSSApp"], path: "Tests/FitBOSSAppTests")
     ]
 )

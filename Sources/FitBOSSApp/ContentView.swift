@@ -35,7 +35,7 @@ private enum FitBOSSPage: String, CaseIterable, Identifiable {
 
 struct ContentView: View {
     @State private var selection: FitBOSSPage? = .home
-    @StateObject private var workoutHistory = WorkoutHistoryStore()
+    @ObservedObject var workoutHistory: WorkoutHistoryStore
 
     var body: some View {
         NavigationSplitView {
