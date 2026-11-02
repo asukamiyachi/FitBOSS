@@ -41,6 +41,11 @@ jobs:
           info["CFBundleURLTypes"]=[{"CFBundleURLSchemes":["fake-firebase-oauth-scheme"]}]
           with open(sys.argv[1], "wb") as target: plistlib.dump(info,target)
           PY
+          # A direct DMG build must fail closed rather than package stale SDK config.
+          if bash Scripts/create-dmg.sh; then
+            echo "Incorrectly permitted an OAuth-configured app into internal DMG" >&2
+            exit 1
+          fi
           bash Scripts/build-app.sh
           test ! -e "$APP/Contents/Resources/GoogleService-Info.plist"
           test ! -e "$APP/Contents/embedded.provisionprofile"
