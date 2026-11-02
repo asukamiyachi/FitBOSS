@@ -66,6 +66,14 @@ struct WorkoutCameraView: View {
                 .disabled(camera.result.value <= 0 || historyStore.storageError != nil)
             }
             .padding(18)
+            if online.signedIn && online.teamId != nil {
+                Text("「完了して記録」で回数と完了日時をこのMacに保存し、Firebaseにも自動送信します。映像と関節座標は送信しません。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 5)
+            }
             if let message = completionMessage {
                 Text(message)
                     .font(.caption).foregroundStyle(.secondary)
