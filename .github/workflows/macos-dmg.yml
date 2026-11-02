@@ -26,6 +26,53 @@ jobs:
         run: swift test
       - name: Build camera prototype without distribution credentials
         run: bash Scripts/build-app.sh
+      - name: Verify offline rebuild purges stale Firebase artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=".build/FitBOSS.app"
+          # The build-mode signature must reject a Firebase app even if its
+          # configuration plist has been removed manually.
+          /usr/bin/python3 - "$APP/Contents/Info.plist" <<'PY'
+          import plistlib, sys
+          with open(sys.argv[1], "rb") as source: info=plistlib.load(source)
+          info["FitBOSSBuildMode"]="firebase"
+          with open(sys.argv[1], "wb") as target: plistlib.dump(info,target)
+          PY
+          if bash Scripts/create-dmg.sh; then
+            echo "Incorrectly accepted an online build without credentials" >&2
+            exit 1
+          fi
+          # Simulate a resource bundle left in the cached SwiftPM build output.
+          BIN_DIR="$(swift build --scratch-path .build -c release --show-bin-path)"
+          mkdir -p "$BIN_DIR/StaleFirebase.bundle"
+          printf 'synthetic data only' > "$BIN_DIR/StaleFirebase.bundle/GoogleService-Info.plist"
+          mkdir -p "$APP/Contents/Resources/StaleFirebase.bundle"
+          printf 'synthetic test data only' > "$APP/Contents/Resources/GoogleService-Info.plist"
+          printf 'synthetic test data only' > "$APP/Contents/embedded.provisionprofile"
+          printf 'synthetic marker' > "$APP/Contents/Resources/StaleFirebase.bundle/sentinel"
+          /usr/bin/python3 - "$APP/Contents/Info.plist" <<'PY'
+          import plistlib, sys
+          with open(sys.argv[1], "rb") as source: info=plistlib.load(source)
+          info["CFBundleURLTypes"]=[{"CFBundleURLSchemes":["fake-firebase-oauth-scheme"]}]
+          with open(sys.argv[1], "wb") as target: plistlib.dump(info,target)
+          PY
+          # A direct DMG build must fail closed rather than package stale SDK config.
+          if bash Scripts/create-dmg.sh; then
+            echo "Incorrectly permitted an OAuth-configured app into internal DMG" >&2
+            exit 1
+          fi
+          bash Scripts/build-app.sh
+          test ! -e "$APP/Contents/Resources/GoogleService-Info.plist"
+          test ! -e "$APP/Contents/embedded.provisionprofile"
+          test ! -e "$APP/Contents/Resources/StaleFirebase.bundle"
+          rm -rf "$BIN_DIR/StaleFirebase.bundle"
+          /usr/bin/python3 - "$APP/Contents/Info.plist" <<'PY'
+          import plistlib, sys
+          with open(sys.argv[1], "rb") as source: info=plistlib.load(source)
+          assert not info.get("CFBundleURLTypes"), "Stale OAuth scheme retained in offline app"
+          assert info.get("FitBOSSBuildMode")=="offline", "Wrong build flavor on offline app"
+          PY
       - name: Generate drag-and-drop FitBOSS.dmg
         run: bash Scripts/create-dmg.sh
       - name: Verify mounted DMG contents
@@ -44,6 +91,8 @@ jobs:
           test -L "$MOUNT_POINT/Applications"
           test "$(readlink "$MOUNT_POINT/Applications")" = /Applications
           codesign --verify --deep --verbose=2 "$MOUNT_POINT/FitBOSS.app"
+          test ! -e "$MOUNT_POINT/FitBOSS.app/Contents/Resources/GoogleService-Info.plist"
+          test ! -e "$MOUNT_POINT/FitBOSS.app/Contents/embedded.provisionprofile"
       - name: Upload internal DMG test artifact (not a Release)
         uses: actions/upload-artifact@v4
         with:
