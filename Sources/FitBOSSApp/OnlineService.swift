@@ -22,6 +22,11 @@ struct RoomProgress: Identifiable {
 }
 /// API access is gated by Google auth and trusted callable functions.
 @MainActor final class OnlineService: ObservableObject {
+    @Published private(set) var isSigningIn = false
+    @Published private(set) var signInMessage: String?
+    @Published private(set) var databaseStatus = "未接続"
+    @Published private(set) var accountEmail: String?
+    @Published private(set) var displayName: String?
     @Published private(set) var configured = false
     @Published private(set) var signedIn = false
     @Published private(set) var uid: String?
@@ -55,7 +60,10 @@ struct RoomProgress: Identifiable {
         #if FITBOSS_FIREBASE_ENABLED
         guard let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
               let options = FirebaseOptions(contentsOfFile: path),
-              options.projectID == "fitboss-acde2" else {
+              options.projectID == "fitboss-acde2",
+              options.bundleID == "com.asukamiyachi.FitBOSS",
+              options.clientID?.isEmpty == false,
+              options.databaseURL?.isEmpty == false else {
             errorMessage = "fitboss-acde2 の最新 GoogleService-Info.plist をアプリに設定してください。"
             return
         }
@@ -71,6 +79,8 @@ struct RoomProgress: Identifiable {
                     self.roomId = nil; self.roomProgress = []; self.roomPhase = nil
                     self.teamInviteCode = nil; self.roomInviteCode = nil
                 }
+                self.accountEmail = user?.email
+                self.displayName = user?.displayName
                 self.uid = user?.uid
                 self.signedIn = user != nil && user?.providerData.contains(where: { $0.providerID == "google.com" }) == true
                 if self.signedIn, let uid = user?.uid {
@@ -88,17 +98,31 @@ struct RoomProgress: Identifiable {
 
     func signIn() {
         #if FITBOSS_FIREBASE_ENABLED
+        guard !isSigningIn else { return }
         guard configured, let clientID = FirebaseApp.app()?.options.clientID,
               let window = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible }) else {
             errorMessage = "ログイン設定かウィンドウが見つかりません。"; return
         }
         isWorking = true
+        isSigningIn = true
+        signInMessage = nil
         GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
         GIDSignIn.sharedInstance.signIn(withPresenting: window) { [weak self] result, error in
             guard let idToken = result?.user.idToken?.tokenString else {
                 Task { @MainActor [weak self] in
                     self?.isWorking = false
-                    self?.errorMessage = error?.localizedDescription ?? "Google認証に失敗しました。"
+                    self?.isSigningIn = false
+                    let code = (error as NSError?)?.code
+                    if code == GIDSignInError.canceled.rawValue {
+                        self?.signInMessage = "ログインを中止しました。もう一度試せます。"
+                    } else if code == GIDSignInError.keychain.rawValue {
+                        self?.signInMessage = "ログイン情報をKeychainに保存できません。アプリの署名設定を確認してください。"
+                    } else if let code {
+                        self?.signInMessage = "Google認証に失敗しました（コード \(code)）。もう一度お試しください。"
+                    } else {
+                        self?.signInMessage = "GoogleのIDトークンを取得できませんでした。OAuth設定を確認してください。"
+                    }
+                    self?.errorMessage = self?.signInMessage
                 }
                 return
             }
@@ -108,6 +132,8 @@ struct RoomProgress: Identifiable {
             Auth.auth().signIn(with: credential) { [weak self] _, error in
                 Task { @MainActor [weak self] in
                     self?.isWorking = false
+                    self?.isSigningIn = false
+                    self?.signInMessage = error == nil ? nil : "Firebase認証に失敗しました。設定と通信状態を確認して、もう一度お試しください。"
                     self?.errorMessage = error?.localizedDescription
                 }
             }
@@ -280,6 +306,7 @@ struct RoomProgress: Identifiable {
         guard let url = FirebaseApp.app()?.options.databaseURL, !url.isEmpty else {
             errorMessage = "FirebaseのRealtime Database URLが設定されていません。"; return
         }
+        databaseStatus = "接続を確認中"
         let database = Database.database(url: url)
         let connected = database.reference(withPath: ".info/connected")
         let own = database.reference(withPath: "presence/\(uid)/connections").childByAutoId()
@@ -287,15 +314,33 @@ struct RoomProgress: Identifiable {
         connectedRef = connected
         let generation = presenceGeneration
         connectionHandle = connected.observe(.value) { [weak self] snap in
-            guard snap.value as? Bool == true else { return }
+            guard snap.value as? Bool == true else {
+                Task { @MainActor [weak self] in
+                    guard self?.presenceGeneration == generation else { return }
+                    self?.databaseStatus = "接続を待機中"
+                }
+                return
+            }
             own.onDisconnectRemoveValue { error, _ in
                 if error == nil {
                     Task { @MainActor [weak self] in
                         guard self?.presenceGeneration == generation, self?.uid == uid, self?.signedIn == true else { return }
-                        own.setValue(true)
+                        own.setValue(true) { error, _ in
+                            Task { @MainActor [weak self] in
+                                guard self?.presenceGeneration == generation else { return }
+                                self?.databaseStatus = error == nil ? "接続済み" : "接続できません。アクセス権限を確認してください。"
+                                if error != nil { self?.errorMessage = "Realtime Databaseへの接続が拒否されました。" }
+                            }
+                        }
                     }
                 }
-                else { Task { @MainActor [weak self] in self?.errorMessage = "オンライン状態の登録に失敗しました。" } }
+                else {
+                    Task { @MainActor [weak self] in
+                        guard self?.presenceGeneration == generation else { return }
+                        self?.databaseStatus = "接続できません。アクセス権限を確認してください。"
+                        self?.errorMessage = "オンライン状態の登録に失敗しました。"
+                    }
+                }
             }
         }
     }
@@ -303,6 +348,7 @@ struct RoomProgress: Identifiable {
     private func stopPresence() {
         #if FITBOSS_FIREBASE_ENABLED
         presenceGeneration = UUID()
+        databaseStatus = "未接続"
         if let connectedRef, let connectionHandle { connectedRef.removeObserver(withHandle:connectionHandle) }
         connectionRef?.removeValue()
         connectionRef = nil; connectedRef = nil; connectionHandle = nil

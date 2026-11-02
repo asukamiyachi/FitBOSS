@@ -16,7 +16,8 @@ if enabled {
         .product(name: "FirebaseAuth", package: "firebase-ios-sdk"),
         .product(name: "FirebaseFunctions", package: "firebase-ios-sdk"),
         .product(name: "FirebaseDatabase", package: "firebase-ios-sdk"),
-        .product(name: "GoogleSignIn", package: "GoogleSignIn-iOS")
+        .product(name: "GoogleSignIn", package: "GoogleSignIn-iOS"),
+        .product(name: "GoogleSignInSwift", package: "GoogleSignIn-iOS")
     ]
 }
 let package = Package(

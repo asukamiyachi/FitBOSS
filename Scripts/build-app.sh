@@ -2,12 +2,26 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 if [[ "$(uname -s)" != "Darwin" ]]; then echo "This app requires macOS and Xcode Command Line Tools."; exit 1; fi
-swift build -c release --product FitBOSSApp
-BIN_DIR="$(swift build -c release --show-bin-path)"
-APP_DIR=".build/FitBOSS.app"
+SIGNING_IDENTITY="${FITBOSS_SIGNING_IDENTITY:--}"
+PROFILE="${FITBOSS_PROVISIONING_PROFILE:-}"
+if [[ "${FITBOSS_FIREBASE_ENABLED:-0}" == "1" && "$SIGNING_IDENTITY" != "-" && ! -f "$PROFILE" ]]; then
+    echo "A matching macOS profile is required: set FITBOSS_PROVISIONING_PROFILE before real Google login testing." >&2
+    exit 1
+fi
+BUILD_DIR="${FITBOSS_BUILD_DIR:-.build}"
+CONFIGURATION="${FITBOSS_BUILD_CONFIGURATION:-release}"
+BUILD_ARGS=(--scratch-path "$BUILD_DIR" -c "$CONFIGURATION")
+swift build "${BUILD_ARGS[@]}" --product FitBOSSApp
+BIN_DIR="$(swift build "${BUILD_ARGS[@]}" --show-bin-path)"
+APP_DIR="$BUILD_DIR/FitBOSS.app"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 cp "$BIN_DIR/FitBOSSApp" "$APP_DIR/Contents/MacOS/FitBOSSApp"
 cp Resources/Info.plist "$APP_DIR/Contents/Info.plist"
+# SPM resource bundles are required by the official Google button and Firebase.
+for bundle in "$BIN_DIR"/*.bundle; do
+    [[ -d "$bundle" ]] || continue
+    ditto "$bundle" "$APP_DIR/Contents/Resources/$(basename "$bundle")"
+done
 if [[ "${FITBOSS_FIREBASE_ENABLED:-0}" == "1" ]]; then
     CONFIG="LocalConfig/GoogleService-Info.plist"
     if [[ ! -f "$CONFIG" ]]; then
@@ -31,7 +45,35 @@ info["CFBundleURLTypes"] = [{"CFBundleURLSchemes": [reverse]}]
 with open(sys.argv[1], "wb") as file: plistlib.dump(info, file)
 PY
 fi
-# Local test build only: Google Keychain flows require proper Apple Development signing.
-codesign --force --sign - "$APP_DIR"
+# Supply an existing Apple Development identity for real Google/Keychain testing.
+# The default remains ad-hoc for offline CI, without exporting private keys.
+codesign --force --sign "$SIGNING_IDENTITY" "$APP_DIR"
+if [[ "${FITBOSS_FIREBASE_ENABLED:-0}" == "1" && "$SIGNING_IDENTITY" != "-" ]]; then
+    TEAM_ID="$(codesign -dv "$APP_DIR" 2>&1 | sed -n 's/^TeamIdentifier=//p')"
+    ENTITLEMENTS="$BUILD_DIR/FitBOSS.entitlements"
+    /usr/bin/python3 - "$TEAM_ID" "$ENTITLEMENTS" "$PROFILE" <<'PYENT'
+import datetime, fnmatch, plistlib, re, subprocess, sys
+team = sys.argv[1]
+if not re.fullmatch(r"[A-Z0-9]{10}", team):
+    raise SystemExit("Cannot determine Apple Development signing team")
+app_id = team + ".com.asukamiyachi.FitBOSS"
+profile = plistlib.loads(subprocess.run(["security", "cms", "-D", "-i", sys.argv[3]], capture_output=True, check=True).stdout)
+allowed = profile.get("Entitlements", {})
+if "OSX" not in profile.get("Platform", []) or team not in profile.get("TeamIdentifier", []):
+    raise SystemExit("Profile platform or signing team does not match")
+if not fnmatch.fnmatchcase(app_id, allowed.get("com.apple.application-identifier", "")):
+    raise SystemExit("Profile does not authorize the FitBOSS bundle ID")
+if not any(fnmatch.fnmatchcase(app_id, group) for group in allowed.get("keychain-access-groups", [])):
+    raise SystemExit("Profile does not authorize the FitBOSS Keychain group")
+if profile.get("ExpirationDate", datetime.datetime.min) <= datetime.datetime.utcnow():
+    raise SystemExit("Provisioning profile expired")
+with open(sys.argv[2], "wb") as file:
+    plistlib.dump({"com.apple.application-identifier": app_id,
+                  "keychain-access-groups": [app_id]}, file)
+PYENT
+    cp "$PROFILE" "$APP_DIR/Contents/embedded.provisionprofile"
+    codesign --force --sign "$SIGNING_IDENTITY" --entitlements "$ENTITLEMENTS" "$APP_DIR"
+fi
+codesign --verify --deep --strict "$APP_DIR"
 echo "Built $APP_DIR"
 echo "Launch: open $APP_DIR"

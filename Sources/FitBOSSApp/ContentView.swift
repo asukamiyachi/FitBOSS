@@ -1,15 +1,15 @@
 import SwiftUI
 import FitBOSSCore
 
-// This shell is intentionally independent of Firebase and exercise scoring.
-// Online actions remain unavailable until authentication and access rules exist.
+// Local practice remains available independently of optional online authentication.
 private enum FitBOSSPage: String, CaseIterable, Identifiable {
-    case home, workout, history, battles, team, achievements, settings
+    case account, home, workout, history, battles, team, achievements, settings
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
+        case .account: "ログイン・アカウント"
         case .home: "ホーム"
         case .workout: "トレーニング"
         case .history: "履歴カレンダー"
@@ -22,6 +22,7 @@ private enum FitBOSSPage: String, CaseIterable, Identifiable {
 
     var symbol: String {
         switch self {
+        case .account: "person.crop.circle"
         case .home: "house.fill"
         case .workout: "figure.strengthtraining.traditional"
         case .history: "calendar"
@@ -34,7 +35,7 @@ private enum FitBOSSPage: String, CaseIterable, Identifiable {
 }
 
 struct ContentView: View {
-    @State private var selection: FitBOSSPage? = .home
+    @State private var selection: FitBOSSPage? = .account
     @StateObject private var online = OnlineService()
     @StateObject private var workoutHistory = WorkoutHistoryStore()
 
@@ -53,6 +54,8 @@ struct ContentView: View {
             .navigationSplitViewColumnWidth(min: 170, ideal: 210, max: 260)
         } detail: {
             switch selection ?? .home {
+            case .account:
+                SignInScreen(online: online, continueLocally: { selection = .home })
             case .home:
                 HomeScreen(
                     historyStore: workoutHistory,
