@@ -46,6 +46,26 @@ struct RoomProgress: Identifiable {
     private var lastProgressSubmission: Date = .distantPast
     @Published private(set) var errorMessage: String?
     @Published private(set) var isWorking = false
+    private var mutatingRequests = OnlineMutationTracker()
+
+    private func refreshWorkingState() {
+        isWorking = isSigningIn || mutatingRequests.isWorking
+    }
+
+    /// Invalidate only the selected team; never delete the user's local workout history.
+    private func clearStaleTeamSelection() {
+        if let uid, let teamId {
+            let key = "fitboss.lastTeamID." + uid
+            if UserDefaults.standard.string(forKey: key) == teamId {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
+        }
+        teamId = nil; teamInviteCode = nil
+        roomId = nil; roomInviteCode = nil; roomPhase = nil
+        members = []; ranking = []; pastRooms = []; roomProgress = []
+        nextProgressRead = .distantPast
+        errorMessage = "チームへのアクセス権が失効しました。必要に応じて再参加してください。"
+    }
 
     #if FITBOSS_FIREBASE_ENABLED
     private var listener: AuthStateDidChangeListenerHandle?
@@ -103,15 +123,15 @@ struct RoomProgress: Identifiable {
               let window = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible }) else {
             errorMessage = "ログイン設定かウィンドウが見つかりません。"; return
         }
-        isWorking = true
         isSigningIn = true
+        refreshWorkingState()
         signInMessage = nil
         GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
         GIDSignIn.sharedInstance.signIn(withPresenting: window) { [weak self] result, error in
             guard let idToken = result?.user.idToken?.tokenString else {
                 Task { @MainActor [weak self] in
-                    self?.isWorking = false
                     self?.isSigningIn = false
+                    self?.refreshWorkingState()
                     let code = (error as NSError?)?.code
                     if code == GIDSignInError.canceled.rawValue {
                         self?.signInMessage = "ログインを中止しました。もう一度試せます。"
@@ -131,8 +151,8 @@ struct RoomProgress: Identifiable {
             )
             Auth.auth().signIn(with: credential) { [weak self] _, error in
                 Task { @MainActor [weak self] in
-                    self?.isWorking = false
                     self?.isSigningIn = false
+                    self?.refreshWorkingState()
                     self?.signInMessage = error == nil ? nil : "Firebase認証に失敗しました。設定と通信状態を確認して、もう一度お試しください。"
                     self?.errorMessage = error?.localizedDescription
                 }
@@ -273,12 +293,18 @@ struct RoomProgress: Identifiable {
         #if FITBOSS_FIREBASE_ENABLED
         guard let functions else { onComplete?(); errorMessage = "Firebase Functionsが未設定です。"; return }
         let isRead = name.hasPrefix("get") || name.hasPrefix("list")
-        if isRead && readsInFlight.contains(name) { onComplete?(); return }
-        if isRead { readsInFlight.insert(name) }
+        let readKey = name == "getTeamRanking" ? name + ":" + (data["period"] as? String ?? "") : name
+        if isRead && readsInFlight.contains(readKey) { onComplete?(); return }
+        if isRead { readsInFlight.insert(readKey) }
         let requestUID = uid, requestTeam = teamId, requestRoom = roomId
-        isWorking = true
+        let mutationToken = isRead ? nil : mutatingRequests.begin()
+        if mutationToken != nil { refreshWorkingState() }
         Task {
-            defer { isWorking = false; if isRead { readsInFlight.remove(name) }; onComplete?() }
+            defer {
+                if isRead { readsInFlight.remove(readKey) }
+                if let mutationToken { mutatingRequests.end(mutationToken); refreshWorkingState() }
+                onComplete?()
+            }
             do {
                 let result = try await functions.httpsCallable(name).call(data)
                 guard let object = result.data as? [String: Any] else { throw NSError(domain:"FitBOSS",code:0) }
@@ -292,7 +318,14 @@ struct RoomProgress: Identifiable {
                     progressBackoff = min(progressBackoff * 2, 60)
                     nextProgressRead = Date().addingTimeInterval(progressBackoff)
                 }
-                if (error as NSError).code == FunctionsErrorCode.permissionDenied.rawValue {
+                let permissionDenied = (error as NSError).code == FunctionsErrorCode.permissionDenied.rawValue
+                if OnlineRequestPolicies.shouldClearTeamSelection(
+                    operation: name, permissionDenied: permissionDenied,
+                    requestUID: requestUID, currentUID: uid,
+                    requestTeamID: requestTeam, currentTeamID: teamId
+                ) {
+                    clearStaleTeamSelection()
+                } else if permissionDenied {
                     members = []; ranking = []; pastRooms = []; roomProgress = []
                 }
             }
