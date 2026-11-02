@@ -1,0 +1,137 @@
+# Manual only. This workflow has no tag, push or PR publication trigger.
+name: Publish signed macOS DMG (manual only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing vX.Y.Z tag pointing to current main commit"
+        required: true
+        type: string
+      confirm_publish:
+        description: "I explicitly authorize a public GitHub Release"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  signed-public-release:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm_publish == true
+    name: Apple notarized macOS DMG and Release
+    runs-on: macos-15
+    timeout-minutes: 90
+    environment: macos-release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify tag, commit, version and absence of existing Release
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release tag must be vX.Y.Z" >&2
+            exit 1
+          fi
+          TAG_COMMIT="$(git rev-parse --verify "refs/tags/$RELEASE_TAG^{commit}")"
+          CURRENT_COMMIT="$(git rev-parse HEAD)"
+          if [[ "$TAG_COMMIT" != "$CURRENT_COMMIT" ]]; then
+            echo "Release tag is not the checked-out main commit" >&2
+            exit 1
+          fi
+          BUNDLE_VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' Resources/Info.plist)"
+          if [[ "$RELEASE_TAG" != "v$BUNDLE_VERSION" ]]; then
+            echo "Git tag and Info.plist version differ" >&2
+            exit 1
+          fi
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release already exists; refusing overwrite" >&2
+            exit 1
+          fi
+
+      - name: Refuse public release when signing or notarization secrets are missing
+        shell: bash
+        env:
+          CERT_BASE64: ${{ secrets.DEVELOPER_ID_CERT_P12_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+          SIGN_IDENTITY: ${{ secrets.DEVELOPER_ID_APPLICATION }}
+          NOTARY_P8: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+          NOTARY_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          for key in CERT_BASE64 CERT_PASSWORD SIGN_IDENTITY NOTARY_P8 NOTARY_KEY_ID NOTARY_ISSUER_ID; do
+            if [[ -z "${!key}" ]]; then
+              echo "Missing required release credential: $key" >&2
+              exit 1
+            fi
+          done
+          if [[ "$SIGN_IDENTITY" != "Developer ID Application:"* ]]; then
+            echo "Expected a Developer ID Application signing identity" >&2
+            exit 1
+          fi
+
+      - name: Import Developer ID Application certificate
+        uses: Apple-Actions/import-codesign-certs@v7
+        with:
+          p12-file-base64: ${{ secrets.DEVELOPER_ID_CERT_P12_BASE64 }}
+          p12-password: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+
+      - name: Compile and sign hardened macOS app
+        shell: bash
+        env:
+          SIGN_IDENTITY: ${{ secrets.DEVELOPER_ID_APPLICATION }}
+        run: |
+          set -euo pipefail
+          swift test
+          bash Scripts/build-app.sh
+          codesign --force --options runtime --timestamp \
+            --sign "$SIGN_IDENTITY" .build/FitBOSS.app
+          codesign --verify --deep --strict --verbose=2 .build/FitBOSS.app
+          codesign -dv --verbose=4 .build/FitBOSS.app 2>&1 | grep -E 'flags=.*runtime'
+
+      - name: Create and sign distribution DMG
+        shell: bash
+        env:
+          SIGN_IDENTITY: ${{ secrets.DEVELOPER_ID_APPLICATION }}
+        run: |
+          set -euo pipefail
+          bash Scripts/create-dmg.sh
+          codesign --force --timestamp --sign "$SIGN_IDENTITY" .build/dist/FitBOSS.dmg
+          codesign --verify --strict --verbose=2 .build/dist/FitBOSS.dmg
+
+      - name: Apple notarization, stapling and Gatekeeper checks
+        uses: Apple-Actions/notarize@v1
+        with:
+          path: .build/dist/FitBOSS.dmg
+          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
+          api-key-id: ${{ secrets.APPSTORE_API_KEY_ID }}
+          api-private-key: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+
+      - name: Verify stapled ticket
+        run: |
+          set -euo pipefail
+          xcrun stapler validate .build/dist/FitBOSS.dmg
+          spctl -a -t open --context context:primary-signature -v .build/dist/FitBOSS.dmg
+
+      - name: Publish immutable GitHub Release asset
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" .build/dist/FitBOSS.dmg \
+            --verify-tag --title "FitBOSS $RELEASE_TAG" --generate-notes --latest
+          gh release view "$RELEASE_TAG" --json assets \
+            --jq '.assets[] | select(.name == "FitBOSS.dmg") | .name' | grep -x FitBOSS.dmg
