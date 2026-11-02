@@ -16,9 +16,9 @@
 
 ## Fixed in PR #6
 
-1. **P2 / stale OAuth data in offline app output:** `Scripts/build-app.sh` now constructs a fresh staged `FitBOSS.app` on every build. Signing is verified before replacing the previous completed bundle. Prior `GoogleService-Info.plist`, OAuth URL schemes, development `embedded.provisionprofile`, or SPM resource bundles cannot survive an offline rebuild.
-2. **P2 / accidental offline DMG contamination:** `Scripts/create-dmg.sh` refuses to package an app containing Firebase config, a development provisioning profile, or OAuth URL schemes. This pipeline is intentionally offline-only. A genuine signed Firebase-enabled public distribution needs a separately reviewed release flow.
-3. **CI regression:** inject synthetic (non-secret) Firebase settings and an OAuth URL scheme into the built offline app, verify DMG packaging rejects it, rebuild offline, and verify the app and mounted DMG no longer contain stale data.
+1. **P2 / stale OAuth data in offline app output:** `Scripts/build-app.sh` now constructs a fresh staged `FitBOSS.app` on every build. Signing is verified before replacing the previous completed bundle. Prior `GoogleService-Info.plist`, OAuth URL schemes, development `embedded.provisionprofile`, or SwiftPM cached SDK bundles cannot survive an offline rebuild. Non-Firebase builds never copy third-party SPM resource bundles from the reused binary cache.
+2. **P2 / accidental offline DMG contamination:** `Scripts/create-dmg.sh` refuses to package an app containing Firebase config, a development provisioning profile, OAuth URL schemes, or a build manifest other than `FitBOSSBuildMode=offline`. This rejects stripped-down online binaries even if no plist remains. This pipeline is intentionally offline-only. A genuine signed Firebase-enabled public distribution needs a separately reviewed release flow.
+3. **CI regression:** inject synthetic (non-secret) Firebase settings, an OAuth URL scheme, an online-mode marker and a cached SDK bundle into the offline build, verify DMG packaging rejects it, rebuild offline, and verify the app and mounted DMG no longer contain stale data.
 4. **CI scope control:** the Firebase Emulator integration job is only required for PR changes to `functions/`, `firebase/`, `firebase.json` or `.firebaserc`. For app/DMG-only PRs, it skips automatically; normal macOS tests, JS syntax/domain tests and Firebase-SDK compilation still run.
 
 ## Test commands (on macOS, without Emulator)

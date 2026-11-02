@@ -31,6 +31,22 @@ jobs:
         run: |
           set -euo pipefail
           APP=".build/FitBOSS.app"
+          # The build-mode signature must reject a Firebase app even if its
+          # configuration plist has been removed manually.
+          /usr/bin/python3 - "$APP/Contents/Info.plist" <<'PY'
+          import plistlib, sys
+          with open(sys.argv[1], "rb") as source: info=plistlib.load(source)
+          info["FitBOSSBuildMode"]="firebase"
+          with open(sys.argv[1], "wb") as target: plistlib.dump(info,target)
+          PY
+          if bash Scripts/create-dmg.sh; then
+            echo "Incorrectly accepted an online build without credentials" >&2
+            exit 1
+          fi
+          # Simulate a resource bundle left in the cached SwiftPM build output.
+          BIN_DIR="$(swift build --scratch-path .build -c release --show-bin-path)"
+          mkdir -p "$BIN_DIR/StaleFirebase.bundle"
+          printf 'synthetic data only' > "$BIN_DIR/StaleFirebase.bundle/GoogleService-Info.plist"
           mkdir -p "$APP/Contents/Resources/StaleFirebase.bundle"
           printf 'synthetic test data only' > "$APP/Contents/Resources/GoogleService-Info.plist"
           printf 'synthetic test data only' > "$APP/Contents/embedded.provisionprofile"
@@ -50,10 +66,12 @@ jobs:
           test ! -e "$APP/Contents/Resources/GoogleService-Info.plist"
           test ! -e "$APP/Contents/embedded.provisionprofile"
           test ! -e "$APP/Contents/Resources/StaleFirebase.bundle"
+          rm -rf "$BIN_DIR/StaleFirebase.bundle"
           /usr/bin/python3 - "$APP/Contents/Info.plist" <<'PY'
           import plistlib, sys
           with open(sys.argv[1], "rb") as source: info=plistlib.load(source)
           assert not info.get("CFBundleURLTypes"), "Stale OAuth scheme retained in offline app"
+          assert info.get("FitBOSSBuildMode")=="offline", "Wrong build flavor on offline app"
           PY
       - name: Generate drag-and-drop FitBOSS.dmg
         run: bash Scripts/create-dmg.sh

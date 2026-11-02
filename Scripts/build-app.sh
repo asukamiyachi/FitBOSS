@@ -23,12 +23,24 @@ trap 'rm -rf "$STAGING_DIR"' EXIT
 mkdir -p "$BUILD_APP/Contents/MacOS" "$BUILD_APP/Contents/Resources"
 cp "$BIN_DIR/FitBOSSApp" "$BUILD_APP/Contents/MacOS/FitBOSSApp"
 cp Resources/Info.plist "$BUILD_APP/Contents/Info.plist"
-# SPM resource bundles are required by the official Google button and Firebase.
-for bundle in "$BIN_DIR"/*.bundle; do
-    [[ -d "$bundle" ]] || continue
-    ditto "$bundle" "$BUILD_APP/Contents/Resources/$(basename "$bundle")"
-done
+# A signed bundle carries its build flavor so the offline DMG can fail closed
+# even when a developer manually removes the online Firebase plist.
+# Metadata is written before codesigning and is not sensitive configuration.
+/usr/bin/python3 - "$BUILD_APP/Contents/Info.plist" "${FITBOSS_FIREBASE_ENABLED:-0}" <<'PYMODE'
+import plistlib, sys
+with open(sys.argv[1], "rb") as source:
+    info = plistlib.load(source)
+info["FitBOSSBuildMode"] = "firebase" if sys.argv[2] == "1" else "offline"
+with open(sys.argv[1], "wb") as target:
+    plistlib.dump(info, target)
+PYMODE
+# Old SwiftPM binary folders may retain SDK bundles across build-mode switches.
+# Only the opt-in Firebase build needs third-party SDK resource bundles.
 if [[ "${FITBOSS_FIREBASE_ENABLED:-0}" == "1" ]]; then
+    for bundle in "$BIN_DIR"/*.bundle; do
+        [[ -d "$bundle" ]] || continue
+        ditto "$bundle" "$BUILD_APP/Contents/Resources/$(basename "$bundle")"
+    done
     CONFIG="LocalConfig/GoogleService-Info.plist"
     if [[ ! -f "$CONFIG" ]]; then
         echo "Missing $CONFIG; re-download it after Google Sign-In is enabled." >&2

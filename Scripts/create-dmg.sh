@@ -23,6 +23,8 @@ fi
 /usr/bin/python3 - "$APP_PATH/Contents/Info.plist" <<'PY'
 import plistlib, sys
 with open(sys.argv[1], "rb") as source: info=plistlib.load(source)
+if info.get("FitBOSSBuildMode") != "offline":
+    raise SystemExit("Refusing DMG: only an explicitly offline FitBOSS build can be packaged")
 if info.get("CFBundleURLTypes"):
     raise SystemExit("Refusing DMG with OAuth URL schemes; rebuild offline")
 PY
