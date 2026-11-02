@@ -1,0 +1,53 @@
+# Internal testing only. Never publish a Release from a PR or this workflow.
+name: macOS internal DMG
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-dmg-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  internal-dmg:
+    name: Build and inspect unsigned distribution test image
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check Swift and tests
+        run: swift test
+      - name: Build camera prototype without distribution credentials
+        run: bash Scripts/build-app.sh
+      - name: Generate drag-and-drop FitBOSS.dmg
+        run: bash Scripts/create-dmg.sh
+      - name: Verify mounted DMG contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          MOUNT_POINT="$(mktemp -d -t fitboss-mount)"
+          cleanup() {
+            hdiutil detach -quiet "$MOUNT_POINT" 2>/dev/null || true
+            rmdir "$MOUNT_POINT" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          hdiutil attach -quiet -readonly -nobrowse \
+            -mountpoint "$MOUNT_POINT" .build/dist/FitBOSS.dmg
+          test -x "$MOUNT_POINT/FitBOSS.app/Contents/MacOS/FitBOSSApp"
+          test -L "$MOUNT_POINT/Applications"
+          test "$(readlink "$MOUNT_POINT/Applications")" = /Applications
+          codesign --verify --deep --verbose=2 "$MOUNT_POINT/FitBOSS.app"
+      - name: Upload internal DMG test artifact (not a Release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: FitBOSS-internal-dmg-${{ github.run_id }}
+          path: .build/dist/FitBOSS.dmg
+          if-no-files-found: error
+          retention-days: 7
