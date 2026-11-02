@@ -2,7 +2,7 @@ import SwiftUI
 import FitBOSSCore
 
 // Local practice remains available independently of optional online authentication.
-private enum FitBOSSPage: String, CaseIterable, Identifiable {
+enum FitBOSSPage: String, CaseIterable, Identifiable {
     case account, home, workout, history, battles, team, achievements, settings
 
     var id: String { rawValue }
@@ -35,7 +35,8 @@ private enum FitBOSSPage: String, CaseIterable, Identifiable {
 }
 
 struct ContentView: View {
-    @State private var selection: FitBOSSPage? = .account
+    @State private var selection: FitBOSSPage? = .home
+    @AppStorage("fitboss.appearance") private var appearanceRawValue = BOSSAppearance.system.rawValue
     @StateObject private var online = OnlineService()
     @ObservedObject var workoutHistory: WorkoutHistoryStore
 
@@ -80,7 +81,7 @@ struct ContentView: View {
             case .history:
                 WorkoutCalendarView(store: workoutHistory)
             case .battles:
-                BOSSBattleScreen(online: online)
+                BOSSBattleScreen(online: online, openAccount: { selection = .account }, openTeam: { selection = .team }, startWorkout: { selection = .workout })
             case .team:
                 TeamScreen(online: online)
             case .achievements:
@@ -90,6 +91,7 @@ struct ContentView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
+        .preferredColorScheme(BOSSAppearance.resolve(appearanceRawValue).colorScheme)
         .tint(BOSSTheme.violet)
         .onReceive(Timer.publish(every: 3, on: .main, in: .common).autoconnect()) { _ in
             if selection == .battles, NSApp.isActive, online.signedIn,
