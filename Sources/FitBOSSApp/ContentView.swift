@@ -42,11 +42,21 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView {
             List(selection: $selection) {
-                Section("メニュー") {
-                    ForEach(FitBOSSPage.allCases) { page in
+                Section {
+                    ForEach([
+                        FitBOSSPage.home, .workout, .history, .battles,
+                        .team, .achievements, .settings
+                    ]) { page in
                         Label(page.title, systemImage: page.symbol)
                             .tag(page)
                     }
+                } header: {
+                    Label("FitBOSS", systemImage: "bolt.heart.fill")
+                        .font(.headline.bold())
+                }
+                Section("アカウント") {
+                    Label(FitBOSSPage.account.title, systemImage: FitBOSSPage.account.symbol)
+                        .tag(FitBOSSPage.account)
                 }
             }
             .listStyle(.sidebar)
