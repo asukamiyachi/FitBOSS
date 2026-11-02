@@ -14,7 +14,7 @@ Once the first verified public Release has a genuine `FitBOSS.dmg` asset, enable
 [![Download for macOS](https://img.shields.io/badge/Download_for_macOS-FitBOSS.dmg-black?logo=apple)](https://github.com/asukamiyachi/FitBOSS/releases/latest/download/FitBOSS.dmg)
 -->
 
-After download, open the DMG and drag `FitBOSS.app` onto the `Applications` shortcut. A README link cannot automatically install an application into /Applications. See [macOS distribution](docs/MACOS_DISTRIBUTION.md).
+After download, open the DMG and drag `FitBOSS.app` onto the `Applications` shortcut. A README link cannot automatically install an application into /Applications. See [macOS distribution](docs/MACOS_DISTRIBUTION.md). **The current internal DMG always contains the offline/local-history build, even though optional Firebase SDK code is available.** See [beta readiness and verification](docs/BETA_READINESS.md) for the test matrix and unverified items.
 
 **Current phase:** native SwiftUI prototype with on-device camera/pose tracking, atomic local workout history, and optional Firebase/Google online foundation. Native Google/Firebase Authentication, account restoration after restart, and own RTDB connection registration were verified against the development project. Team/room server APIs remain undeployed. See [verification and remaining work](docs/VERIFICATION_2026-11-02.md).
 
