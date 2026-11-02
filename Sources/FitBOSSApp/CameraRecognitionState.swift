@@ -24,10 +24,11 @@ struct CameraRecognitionState {
     }
 
     @discardableResult
-    mutating func consume(_ pose: PoseFrame?, capturedAt: TimeInterval, revision: Int) -> Bool {
+    mutating func consume(_ pose: PoseFrame?, capturedAt: TimeInterval, revision: Int,
+                          invalidTimestamp: Bool = false) -> Bool {
         guard revision == self.revision, capturedAt.isFinite,
               capturedAt >= earliestCaptureTime else { return false }
-        result = evaluator.process(pose)
+        result = invalidTimestamp ? evaluator.interruptTracking() : evaluator.process(pose)
         return true
     }
 }

@@ -127,6 +127,7 @@ final class RecognitionRegressionTests: XCTestCase {
         var evaluator = PushUpEvaluator()
         for sample in RecognitionFixtures.samples([170,170,95,95,170,170]) { _ = evaluator.process(sample.frame) }
         XCTAssertEqual(evaluator.process(RecognitionFixtures.Sample(time:0.6,angle:170).frame).value,0)
+        XCTAssertEqual(evaluator.diagnostic,.ready)
     }
 
     func testFreshRepAfterLongGapDoesNotRequireExtraStartingFrame() {

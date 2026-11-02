@@ -56,4 +56,15 @@ final class CameraRecognitionStateTests: XCTestCase {
         }
         XCTAssertEqual(state.result.value,0)
     }
+
+    func testInvalidCaptureTimestampNotificationHardCancelsPartialRep() {
+        var state = CameraRecognitionState()
+        for (i, angle) in [170.0,170,95,95].enumerated() {
+            let time=Double(i)*0.1
+            state.consume(frame(angle,at:time),capturedAt:time,revision:state.revision)
+        }
+        XCTAssertTrue(state.consume(nil,capturedAt:0.4,revision:state.revision,invalidTimestamp:true))
+        for time in [0.6,0.7] { state.consume(frame(170,at:time),capturedAt:time,revision:state.revision) }
+        XCTAssertEqual(state.result.value,0)
+    }
 }

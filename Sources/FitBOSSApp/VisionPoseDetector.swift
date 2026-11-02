@@ -3,7 +3,7 @@ import Foundation
 import Vision
 import FitBOSSCore
 
-enum PoseDetectionFailure { case noImage, noPerson, visionError }
+enum PoseDetectionFailure { case noImage, noPerson, visionError, invalidTimestamp }
 
 struct PoseDetection {
     let frame: PoseFrame?

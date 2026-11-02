@@ -143,6 +143,8 @@ public struct PushUpEvaluator: ExerciseEvaluator {
                 if let downAt, frame.timestamp - downAt + Self.timeEpsilon >= minimumRepDuration {
                     repetitions += 1
                     diagnostic = .counted
+                } else {
+                    diagnostic = .ready
                 }
                 position = .up
                 downAt = nil

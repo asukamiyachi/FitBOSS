@@ -39,11 +39,18 @@ private final class FrameProcessor: NSObject, AVCaptureVideoDataOutputSampleBuff
         // Apple's capture timestamps use session.synchronizationClock. Convert
         // into the host clock used by the main-thread stream-boundary fence.
         let time = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-        guard time.isNumeric else { return }
+        guard time.isNumeric else { rejectTimestamp(revision: revision); return }
         let hostTime = CMSyncConvertTime(time, from: clock, to: CMClockGetHostTimeClock())
         let capturedAt = CMTimeGetSeconds(hostTime)
-        guard capturedAt.isFinite else { return }
+        guard capturedAt.isFinite else { rejectTimestamp(revision: revision); return }
         onPose?(detector.detect(sampleBuffer, timestamp: capturedAt), capturedAt, revision)
+    }
+
+    private func rejectTimestamp(revision: Int) {
+        // Timestamp the error notification only; it contains no pose and cannot
+        // stand in for an observed movement or bridge a partial repetition.
+        let notifiedAt = CMTimeGetSeconds(CMClockGetTime(CMClockGetHostTimeClock()))
+        onPose?(PoseDetection(frame: nil, failure: .invalidTimestamp), notifiedAt, revision)
     }
 }
 
@@ -74,7 +81,10 @@ final class CameraManager: NSObject, ObservableObject {
         processor.onPose = { [weak self] detection, capturedAt, revision in
             DispatchQueue.main.async { [weak self] in
                 guard let self, self.isRunning && !self.isStarting else { return }
-                guard self.recognition.consume(detection.frame, capturedAt: capturedAt, revision: revision) else { return }
+                let badTime: Bool
+                if case .invalidTimestamp = detection.failure { badTime = true } else { badTime = false }
+                guard self.recognition.consume(detection.frame, capturedAt: capturedAt,
+                                              revision: revision, invalidTimestamp: badTime) else { return }
                 self.pose = detection.frame
                 self.result = self.recognition.result
                 self.updateTrackingMessage(detection.failure)
@@ -158,6 +168,7 @@ final class CameraManager: NSObject, ObservableObject {
             case .noImage: trackingMessage = "カメラの映像を取得できません。"
             case .noPerson: trackingMessage = "姿勢を検出できません。肩・肘・手首を画面に入れてください。"
             case .visionError: trackingMessage = "姿勢解析に失敗しました。続く場合はカメラを再開してください。"
+            case .invalidTimestamp: trackingMessage = "フレーム時刻を確認できず、途中の計測を破棄しました。"
             }
             return
         }
