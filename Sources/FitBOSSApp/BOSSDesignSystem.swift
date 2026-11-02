@@ -40,21 +40,19 @@ struct BOSSPage<Content: View>: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                HStack(alignment: .lastTextBaseline, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text(title)
-                            .font(.system(size: 34, weight: .heavy, design: .rounded))
-                            .foregroundStyle(.white)
-                        Text(subtitle)
-                            .font(.subheadline)
-                            .foregroundStyle(BOSSTheme.muted)
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        heading
+                        Spacer(minLength: 8)
+                        Text("FITBOSS  //")
+                            .font(.caption.weight(.bold))
+                            .tracking(1.4)
+                            .foregroundStyle(BOSSTheme.blue)
                     }
-                    Spacer(minLength: 0)
-                    Text("FITBOSS  //")
-                        .font(.caption.weight(.bold))
-                        .tracking(1.4)
-                        .foregroundStyle(BOSSTheme.blue)
+                    .fixedSize(horizontal: true, vertical: false)
+                    heading
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 content
             }
             .frame(maxWidth: 1320, alignment: .leading)
@@ -65,6 +63,19 @@ struct BOSSPage<Content: View>: View {
         .background(BOSSBackground())
         .preferredColorScheme(.dark)
         .navigationTitle(title)
+    }
+
+    private var heading: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(title)
+                .font(.system(size: 34, weight: .heavy, design: .rounded))
+                .foregroundStyle(.white)
+                .accessibilityAddTraits(.isHeader)
+            Text(subtitle)
+                .font(.subheadline)
+                .foregroundStyle(BOSSTheme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 
