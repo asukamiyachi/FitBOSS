@@ -21,12 +21,13 @@ User approved UI scaffolding on 2026-11-02.
 
 - \`ContentView.swift\` owns navigation, local-history dashboard, and read-only online placeholders.
 - \`WorkoutCameraView.swift\` owns experimental camera capture and the explicit save action. \`WorkoutHistoryStore\` uses \`WorkoutHistoryPersistence\` to atomically save workout summaries and rest days as JSON in Application Support/FitBOSS. Existing UserDefaults history migrates only after a successful file write; corrupted history and I/O errors block later writes. \`WorkoutCalendarView\` renders and deletes records.
-- Default build uses no Firebase SDK or networking. Optional `FITBOSS_FIREBASE_ENABLED=1` build includes Google/Firebase integrations and server-authorized summaries; no camera video or pose landmarks are uploaded. Real cloud deployment/login remain unverified.
+- Default build uses no Firebase SDK or networking. Optional `FITBOSS_FIREBASE_ENABLED=1` build includes Google/Firebase integrations and server-authorized summaries; no camera video or pose landmarks are uploaded. Cloud Functions are not deployed; Google sign-in and own presence registration were verified in the development project.
 - Never claim an online team/match exists until confirmed by an authenticated backend.
 - Do not equate client-computed repetition count with verified movement or clinical quality.
 - Streaks must be rest-day-aware; badges and leaderboards must not reward unsafe escalation of training.
 - History date keys, calendar month/day headings, and workout date/time labels use Asia/Tokyo regardless of the system display time zone.
 - Firebase-enabled functions require Google authentication and server-side authorization. Emulator Rules and room-capacity tests exist, but cloud deployment and real Google login remain unverified.
+- All windows share the app-owned workout history store; multiple windows must never overwrite one another's sessions or rest days.
 - Keep Google-only login as a *development* decision. Review App Store sign-in requirements before distribution.
 - Use native SwiftUI components and SF Symbols for easier visual redesign later.
 

@@ -219,9 +219,14 @@ exports.getTeamRanking=callable(async({data},uid)=>{
 });
 exports.listPastRooms=callable(async({data},uid)=>{
   const teamId=requireString(data?.teamId,"チーム");await requireMember(teamId,uid);
-  const records=await fs.collection("rooms").where("participantUids","array-contains",uid).limit(50).get();
-  return {rooms:records.docs.filter(x=>x.data().teamId===teamId&&x.data().phase==="finished")
-    .sort((a,b)=>b.data().completedAt-a.data().completedAt).slice(0,20)
+  // Filter before limiting: unrelated teams/history must not evict own matches.
+  const records=await fs.collection("rooms")
+    .where("teamId","==",teamId)
+    .where("phase","==","finished")
+    .where("participantUids","array-contains",uid)
+    .orderBy("completedAt","desc")
+    .limit(20).get();
+  return {rooms:records.docs
     .map(x=>({roomId:x.id,exerciseId:x.data().exerciseId,completedAt:x.data().completedAt,participantUids:x.data().participantUids}))};
 });
 // RTDB client can only mutate its own ephemeral connections; no client can read any other path.
