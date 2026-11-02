@@ -1,5 +1,15 @@
 # Online foundation follow-up (2026-11-02)
 
+## PR #4 P2 review fixes (2026-11-02)
+
+The following changes are confined to the PR #4 branch and have not been deployed or merged.
+
+- **Revoked team membership:** an authenticated `getTeamOverview` response with `permission-denied` invalidates the selected team only when the in-flight request belongs to the **same UID and team ID**. The app clears room/private team UI and the matching saved team selection, so the user can join or create a team again. Transient errors and room-level permission denials do **not** remove a team. Local exercise history remains untouched.
+- **Cost-conscious refresh:** continuous team overviews and ranking/room-history fetches now occur only while the app is foreground and the Team screen is selected, on a **180-second** interval rather than the previous global **30-second** interval. Entering the Team screen refreshes immediately. Initial authentication, explicit refresh, and finishing a room may still trigger necessary reads. Pending exercise uploads are retried only while the app is in the foreground. Continuous team-screen polling changes from roughly **6 to 1 callable requests/minute per app** (three calls every 30 seconds → three every 180 seconds), an illustrative ~83% reduction; actual read counts, retries, RTDB reads and billing are not measured.
+- **Concurrent call state:** only mutating callable requests block mutating UI controls, and every mutation has its own completion token. One finished request cannot set `isWorking` false while another mutation or Google sign-in remains active. Read-only fetches continue independently; distinct weekly/monthly ranking refreshes have distinct deduplication keys.
+- **Tests added:** Swift policy tests for overlap/duplicate completion, selection identity, revoked versus transient/room-only authorization, background/visible refresh gating; Firebase Emulator integration now checks externally revoked membership, private-call denial and creation of a new team after revocation.
+- **Known scope:** membership invalidation is detected on an authoritative team overview read, not by instantaneous push; previously received data cannot be recalled from a device. User-approved hardware/UI tests remain deferred. No live Rules, Cloud Functions, Firestore Rules or billing changes were made by this fix.
+
 ## Later native connection verification
 
 A subsequent user-approved session verified native Google/Firebase Auth login, Keychain restoration after restart, and acknowledged own RTDB connection registration against `fitboss-acde2`. A matching macOS development profile was obtained from the approved personal team. Only the RTDB Rules were deployed, with explicit user authorization, and their read-back JSON matched the repository. Firestore Standard is in Tokyo (`asia-northeast1`); RTDB is in Singapore (`asia-southeast1`). Cloud Functions API remains disabled; Functions and Firestore Rules were not deployed. No billing change or PR/main merge occurred. See [current native setup](FIREBASE_SETUP.md) for the verified scope and local profile expiry.
