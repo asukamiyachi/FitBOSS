@@ -15,6 +15,19 @@ enum BOSSTheme {
     )
 }
 
+/// A testable sizing rule for the 820×540 macOS window and smaller detail panes.
+enum BOSSLayoutPolicy {
+    static let compactTrainingBreakpoint: CGFloat = 770
+
+    static func compactTraining(detailWidth: CGFloat) -> Bool {
+        detailWidth < compactTrainingBreakpoint
+    }
+
+    static func compactCameraHeight(windowHeight: CGFloat) -> CGFloat {
+        max(220, min(320, windowHeight * 0.45))
+    }
+}
+
 private struct BOSSBackground: View {
     var body: some View {
         ZStack {
