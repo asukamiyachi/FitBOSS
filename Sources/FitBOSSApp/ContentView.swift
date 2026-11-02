@@ -57,7 +57,7 @@ struct ContentView: View {
             case .account:
                 SignInScreen(online: online, continueLocally: { selection = .home })
             case .home:
-                HomeScreen(
+                BOSSHomeScreen(
                     historyStore: workoutHistory,
                     online: online,
                     startWorkout: { selection = .workout },
@@ -70,7 +70,7 @@ struct ContentView: View {
             case .history:
                 WorkoutCalendarView(store: workoutHistory)
             case .battles:
-                BattleScreen(online: online)
+                BOSSBattleScreen(online: online)
             case .team:
                 TeamScreen(online: online)
             case .achievements:
@@ -80,6 +80,7 @@ struct ContentView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
+        .tint(BOSSTheme.violet)
         .onReceive(Timer.publish(every: 3, on: .main, in: .common).autoconnect()) { _ in
             if selection == .battles, NSApp.isActive, online.signedIn,
                ["waiting", "active"].contains(online.roomPhase ?? "") {
@@ -181,178 +182,6 @@ private struct InformationPanel<Content: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(20)
         .background(Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
-    }
-}
-
-private struct HomeScreen: View {
-    @ObservedObject var historyStore: WorkoutHistoryStore
-    @ObservedObject var online: OnlineService
-    let startWorkout: () -> Void
-    let openCalendar: () -> Void
-    let openBattles: () -> Void
-    let openTeam: () -> Void
-
-    private var latestSessions: [FitBOSSCore.SavedWorkout] {
-        Array(historyStore.history.sessions.sorted { $0.completedAt > $1.completedAt }.prefix(3))
-    }
-
-    var body: some View {
-        ScreenLayout(
-            title: "ホーム",
-            subtitle: "自分のペースで運動し、仲間と進捗を共有しよう。"
-        ) {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 12)], spacing: 12) {
-                StatisticCard(
-                    title: "継続記録",
-                    value: historyStore.history.sessions.isEmpty ? "—" : "\(historyStore.history.currentWorkoutStreak())日",
-                    detail: "運動日数のみ／休息日最大2日で継続",
-                    icon: "calendar"
-                )
-                StatisticCard(title: "対戦記録", value: "—", detail: "対戦履歴の連携後に表示", icon: "bolt.fill")
-                StatisticCard(title: "チーム", value: online.teamId == nil ? "未参加" : "参加中", detail: online.signedIn ? "チーム内のみ共有" : "Googleログインが必要", icon: "person.3")
-                StatisticCard(title: "獲得バッジ", value: "—", detail: "達成条件の実装後に表示", icon: "medal")
-            }
-
-            InformationPanel(title: "さっそく始める", icon: "play.circle.fill") {
-                Text("カメラで腕立て伏せの回数を試験計測できます。映像や関節データは外部に送信しません。")
-                    .foregroundStyle(.secondary)
-                HStack(spacing: 12) {
-                    Button(action: startWorkout) {
-                        Label("トレーニングを開始", systemImage: "play.fill")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    Button(action: openBattles) {
-                        Label("オンライン対戦", systemImage: "bolt.fill")
-                    }
-                    Button(action: openTeam) {
-                        Label("チームに参加", systemImage: "person.3.fill")
-                    }
-                }
-            }
-
-            InformationPanel(title: "最近の活動", icon: "clock.arrow.circlepath") {
-                if latestSessions.isEmpty {
-                    Text("まだ保存された運動記録はありません。").foregroundStyle(.secondary)
-                } else {
-                    ForEach(latestSessions) { workout in
-                        HStack {
-                            Text("腕立て伏せ \(workout.repetitions) 回")
-                            Spacer()
-                            Text(WorkoutDay.dateTimeTitle(for: workout.completedAt))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                Button("運動履歴カレンダーを見る", action: openCalendar)
-                Text(online.signedIn && online.teamId != nil
-                     ? "履歴はこのMacに保存。チーム参加中に完了した運動の回数・日時はFirebaseへ自動送信します。通信失敗時は再送待ちになります。"
-                     : "履歴はこのMacに保存。Googleログインとチーム参加後に完了した運動は、回数・日時がFirebaseへ送信されます。")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            if let error = historyStore.storageError {
-                Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
-            }
-        }
-    }
-}
-
-private struct BattleScreen: View {
-    @ObservedObject var online: OnlineService
-    @State private var roomCode = ""
-    @State private var invitees: Set<String> = []
-
-    private var isReady: Bool { online.configured && online.signedIn && online.teamId != nil && !online.isWorking }
-    private var teamInvitees: [TeamPresence] {
-        online.members.filter { $0.uid != online.uid }
-    }
-
-    var body: some View {
-        ScreenLayout(
-            title: "オンライン対戦",
-            subtitle: "チーム内の招待制ルーム。最大6人、カメラ映像は共有しません。"
-        ) {
-            InformationPanel(title: "ルームに参加", icon: "person.2.wave.2") {
-                TextField("対戦の招待コード", text: $roomCode)
-                    .textFieldStyle(.roundedBorder).frame(maxWidth: 390)
-                    .disabled(!isReady)
-                Button("参加する") { online.joinRoom(code: roomCode) }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!isReady || roomCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-            InformationPanel(title: "新しいルーム", icon: "plus.circle") {
-                Text("招待するチームメンバーを選択（最大5人）。本人を含め6人まで参加可能です。")
-                    .foregroundStyle(.secondary)
-                if teamInvitees.isEmpty {
-                    Text("他のチームメンバーがいません。")
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(teamInvitees) { member in
-                    Toggle("メンバー \(member.uid.prefix(8))", isOn: Binding(
-                        get: { invitees.contains(member.uid) },
-                        set: { enabled in
-                            if enabled && invitees.count < 5 { invitees.insert(member.uid) }
-                            if !enabled { invitees.remove(member.uid) }
-                        }
-                    ))
-                    .disabled(!isReady)
-                }
-                Button("ルームを作成") {
-                    online.createRoom(invitedUids: Array(invitees))
-                }
-                .disabled(!isReady)
-                if let code = online.roomInviteCode {
-                    LabeledContent("新しいルームの招待コード", value: code)
-                    Text("コードは招待したメンバーにだけ共有してください。")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            InformationPanel(title: "現在のルーム", icon: "bolt.fill") {
-                if let id = online.roomId {
-                    Text("ルームID：\(id)")
-                        .textSelection(.enabled)
-                    Text("状態：\(online.roomPhase ?? "取得中")")
-                    HStack {
-                        Button("対戦開始") { online.startRoom() }
-                            .disabled(!isReady || online.roomPhase != "waiting")
-                        Button("対戦終了") { online.finishRoom() }
-                            .disabled(!isReady || !["waiting","active"].contains(online.roomPhase ?? ""))
-                        Button("進捗を更新") { online.refreshRoomProgress() }
-                            .disabled(!isReady)
-                    }
-                    ForEach(online.roomProgress, id: \.uid) { item in
-                        HStack {
-                            Text("メンバー \(item.uid.prefix(8))")
-                            Spacer()
-                            Text("\(item.repetitions) 回（暫定）")
-                        }
-                    }
-                    Text("計測数は各端末から送信した暫定値です。動画や関節座標は送信しません。")
-                        .font(.caption).foregroundStyle(.secondary)
-                } else {
-                    Text("まだ参加中の対戦ルームはありません。")
-                        .foregroundStyle(.secondary)
-                }
-            }
-            InformationPanel(title: "対戦履歴・再戦", icon: "arrow.clockwise") {
-                if online.pastRooms.isEmpty {
-                    Text("終了済みの対戦履歴はありません。").foregroundStyle(.secondary)
-                }
-                ForEach(online.pastRooms, id: \.roomId) { record in
-                    HStack {
-                        Text("対戦 \(record.roomId.prefix(8))・\(record.participantCount)人")
-                        Spacer()
-                        Button("再戦") { online.rematch(roomId: record.roomId) }
-                            .disabled(!isReady)
-                    }
-                }
-                Text("再戦は同じメンバーを新しく招待します。自動参加やスコアの引き継ぎはありません。")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            if !online.configured {
-                Label("Firebase SDK・アプリ設定またはサーバーの準備が必要です。", systemImage: "lock.fill")
-                    .foregroundStyle(.secondary)
-            }
-        }
     }
 }
 
