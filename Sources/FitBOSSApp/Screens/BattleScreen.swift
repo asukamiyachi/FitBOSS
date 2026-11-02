@@ -1,4 +1,5 @@
 import SwiftUI
+import FitBOSSCore
 
 // Battle: room management, invitees and provisional progress.
 struct BattleScreen: View {

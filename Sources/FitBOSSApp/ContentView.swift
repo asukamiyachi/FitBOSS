@@ -86,7 +86,7 @@ struct ContentView: View {
                 online.refreshRoomProgress()
             }
         }
-        .onChange(of: online.teamId) { _ in uploadPendingWorkouts() }
+        .onChange(of: online.teamId) { _, _ in uploadPendingWorkouts() }
         .onChange(of: selection) { _, page in
             if OnlineRequestPolicies.shouldRefreshTeam(
                 appIsActive: NSApp.isActive, teamScreenVisible: page == .team,
