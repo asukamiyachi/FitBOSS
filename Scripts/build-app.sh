@@ -23,6 +23,7 @@ trap 'rm -rf "$STAGING_DIR"' EXIT
 mkdir -p "$BUILD_APP/Contents/MacOS" "$BUILD_APP/Contents/Resources"
 cp "$BIN_DIR/FitBOSSApp" "$BUILD_APP/Contents/MacOS/FitBOSSApp"
 cp Resources/Info.plist "$BUILD_APP/Contents/Info.plist"
+cp Resources/FitBOSS.icns "$BUILD_APP/Contents/Resources/FitBOSS.icns"
 # A signed bundle carries its build flavor so the offline DMG can fail closed
 # even when a developer manually removes the online Firebase plist.
 # Metadata is written before codesigning and is not sensitive configuration.
