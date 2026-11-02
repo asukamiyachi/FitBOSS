@@ -13,14 +13,20 @@ CONFIGURATION="${FITBOSS_BUILD_CONFIGURATION:-release}"
 BUILD_ARGS=(--scratch-path "$BUILD_DIR" -c "$CONFIGURATION")
 swift build "${BUILD_ARGS[@]}" --product FitBOSSApp
 BIN_DIR="$(swift build "${BUILD_ARGS[@]}" --show-bin-path)"
+# Build into a fresh .app so Firebase settings, provisioning profiles, and
+# SPM bundles cannot remain after switching back to the offline build.
 APP_DIR="$BUILD_DIR/FitBOSS.app"
-mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
-cp "$BIN_DIR/FitBOSSApp" "$APP_DIR/Contents/MacOS/FitBOSSApp"
-cp Resources/Info.plist "$APP_DIR/Contents/Info.plist"
+mkdir -p "$BUILD_DIR"
+STAGING_DIR="$(mktemp -d "$BUILD_DIR/.FitBOSS-build.XXXXXXXX")"
+BUILD_APP="$STAGING_DIR/FitBOSS.app"
+trap 'rm -rf "$STAGING_DIR"' EXIT
+mkdir -p "$BUILD_APP/Contents/MacOS" "$BUILD_APP/Contents/Resources"
+cp "$BIN_DIR/FitBOSSApp" "$BUILD_APP/Contents/MacOS/FitBOSSApp"
+cp Resources/Info.plist "$BUILD_APP/Contents/Info.plist"
 # SPM resource bundles are required by the official Google button and Firebase.
 for bundle in "$BIN_DIR"/*.bundle; do
     [[ -d "$bundle" ]] || continue
-    ditto "$bundle" "$APP_DIR/Contents/Resources/$(basename "$bundle")"
+    ditto "$bundle" "$BUILD_APP/Contents/Resources/$(basename "$bundle")"
 done
 if [[ "${FITBOSS_FIREBASE_ENABLED:-0}" == "1" ]]; then
     CONFIG="LocalConfig/GoogleService-Info.plist"
@@ -28,8 +34,8 @@ if [[ "${FITBOSS_FIREBASE_ENABLED:-0}" == "1" ]]; then
         echo "Missing $CONFIG; re-download it after Google Sign-In is enabled." >&2
         exit 1
     fi
-    cp "$CONFIG" "$APP_DIR/Contents/Resources/GoogleService-Info.plist"
-    /usr/bin/python3 - "$APP_DIR/Contents/Info.plist" "$CONFIG" <<'PY'
+    cp "$CONFIG" "$BUILD_APP/Contents/Resources/GoogleService-Info.plist"
+    /usr/bin/python3 - "$BUILD_APP/Contents/Info.plist" "$CONFIG" <<'PY'
 import plistlib, sys
 with open(sys.argv[1], "rb") as file: info = plistlib.load(file)
 with open(sys.argv[2], "rb") as file: conf = plistlib.load(file)
@@ -47,9 +53,9 @@ PY
 fi
 # Supply an existing Apple Development identity for real Google/Keychain testing.
 # The default remains ad-hoc for offline CI, without exporting private keys.
-codesign --force --sign "$SIGNING_IDENTITY" "$APP_DIR"
+codesign --force --sign "$SIGNING_IDENTITY" "$BUILD_APP"
 if [[ "${FITBOSS_FIREBASE_ENABLED:-0}" == "1" && "$SIGNING_IDENTITY" != "-" ]]; then
-    TEAM_ID="$(codesign -dv "$APP_DIR" 2>&1 | sed -n 's/^TeamIdentifier=//p')"
+    TEAM_ID="$(codesign -dv "$BUILD_APP" 2>&1 | sed -n 's/^TeamIdentifier=//p')"
     ENTITLEMENTS="$BUILD_DIR/FitBOSS.entitlements"
     /usr/bin/python3 - "$TEAM_ID" "$ENTITLEMENTS" "$PROFILE" <<'PYENT'
 import datetime, fnmatch, plistlib, re, subprocess, sys
@@ -71,9 +77,17 @@ with open(sys.argv[2], "wb") as file:
     plistlib.dump({"com.apple.application-identifier": app_id,
                   "keychain-access-groups": [app_id]}, file)
 PYENT
-    cp "$PROFILE" "$APP_DIR/Contents/embedded.provisionprofile"
-    codesign --force --sign "$SIGNING_IDENTITY" --entitlements "$ENTITLEMENTS" "$APP_DIR"
+    cp "$PROFILE" "$BUILD_APP/Contents/embedded.provisionprofile"
+    codesign --force --sign "$SIGNING_IDENTITY" --entitlements "$ENTITLEMENTS" "$BUILD_APP"
 fi
-codesign --verify --deep --strict "$APP_DIR"
+codesign --verify --deep --strict "$BUILD_APP"
+if [[ -L "$APP_DIR" || ( -e "$APP_DIR" && ! -d "$APP_DIR" ) ]]; then
+    echo "Refusing to replace a symlink or a non-directory app path: $APP_DIR" >&2
+    exit 1
+fi
+rm -rf "$APP_DIR"
+mv "$BUILD_APP" "$APP_DIR"
+rmdir "$STAGING_DIR"
+trap - EXIT
 echo "Built $APP_DIR"
 echo "Launch: open $APP_DIR"
