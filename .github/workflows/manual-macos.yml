@@ -83,7 +83,38 @@ jobs:
           assert 'default' not in aliases
           PY
 
+  detect-firebase-changes:
+    name: Determine whether backend integration tests are needed
+    runs-on: ubuntu-latest
+    outputs:
+      run_emulator: ${{ steps.changed.outputs.run_emulator }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: changed
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" != "pull_request" ]]; then
+            echo "run_emulator=true" >> "$GITHUB_OUTPUT"
+          elif git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- functions firebase firebase.json .firebaserc | grep -q .; then
+            echo "run_emulator=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_emulator=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping Firebase Emulator: no backend, rules or Firebase config changed."
+          fi
+
   security-rules:
+    # Keep integration coverage for backend changes without launching emulators
+    # on macOS-only PRs (such as packaging and camera-only changes).
+    needs: detect-firebase-changes
+    if: needs.detect-firebase-changes.outputs.run_emulator == 'true'
     name: Firebase Rules and Functions integration (no deploy)
     runs-on: ubuntu-latest
     timeout-minutes: 20
