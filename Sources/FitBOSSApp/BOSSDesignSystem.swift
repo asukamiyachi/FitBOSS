@@ -118,6 +118,7 @@ struct BOSSPill: View {
 }
 
 struct BOSSPrimaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline.weight(.bold))
@@ -125,12 +126,13 @@ struct BOSSPrimaryButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.horizontal, 14)
             .background(BOSSTheme.action, in: RoundedRectangle(cornerRadius: 13))
-            .opacity(configuration.isPressed ? 0.78 : 1)
+            .opacity(isEnabled ? (configuration.isPressed ? 0.78 : 1) : 0.42)
             .shadow(color: BOSSTheme.violet.opacity(0.22), radius: 12, y: 4)
     }
 }
 
 struct BOSSSecondaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.subheadline.weight(.semibold))
@@ -139,6 +141,7 @@ struct BOSSSecondaryButtonStyle: ButtonStyle {
             .padding(.horizontal, 11)
             .background(.white.opacity(configuration.isPressed ? 0.22 : 0.09),
                         in: RoundedRectangle(cornerRadius: 12))
+            .opacity(isEnabled ? 1 : 0.42)
             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.white.opacity(0.17)))
     }
 }
