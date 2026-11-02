@@ -23,10 +23,10 @@ struct WorkoutCameraView: View {
     var body: some View {
         GeometryReader { window in
             BOSSPage(title: "トレーニング", subtitle: "カメラで腕立て伏せを計測。自分のペースで進めましょう。") {
-                if window.size.width < 770 {
+                if BOSSLayoutPolicy.compactTraining(detailWidth: window.size.width) {
                     // At 820×540, save/start controls must be visible above the camera.
                     compactControls
-                    cameraPanel(height: max(220, min(320, window.size.height * 0.45)))
+                    cameraPanel(height: BOSSLayoutPolicy.compactCameraHeight(windowHeight: window.size.height))
                 } else {
                     HStack(alignment: .top, spacing: 16) {
                         cameraPanel(height: 442)
