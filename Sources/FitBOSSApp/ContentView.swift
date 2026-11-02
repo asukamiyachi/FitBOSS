@@ -42,11 +42,21 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView {
             List(selection: $selection) {
-                Section("メニュー") {
-                    ForEach(FitBOSSPage.allCases) { page in
+                Section {
+                    ForEach([
+                        FitBOSSPage.home, .workout, .history, .battles,
+                        .team, .achievements, .settings
+                    ]) { page in
                         Label(page.title, systemImage: page.symbol)
                             .tag(page)
                     }
+                } header: {
+                    Label("FitBOSS", systemImage: "bolt.heart.fill")
+                        .font(.headline.bold())
+                }
+                Section("アカウント") {
+                    Label(FitBOSSPage.account.title, systemImage: FitBOSSPage.account.symbol)
+                        .tag(FitBOSSPage.account)
                 }
             }
             .listStyle(.sidebar)
@@ -57,7 +67,7 @@ struct ContentView: View {
             case .account:
                 SignInScreen(online: online, continueLocally: { selection = .home })
             case .home:
-                HomeScreen(
+                BOSSHomeScreen(
                     historyStore: workoutHistory,
                     online: online,
                     startWorkout: { selection = .workout },
@@ -70,7 +80,7 @@ struct ContentView: View {
             case .history:
                 WorkoutCalendarView(store: workoutHistory)
             case .battles:
-                BattleScreen(online: online)
+                BOSSBattleScreen(online: online)
             case .team:
                 TeamScreen(online: online)
             case .achievements:
@@ -80,6 +90,7 @@ struct ContentView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
+        .tint(BOSSTheme.violet)
         .onReceive(Timer.publish(every: 3, on: .main, in: .common).autoconnect()) { _ in
             if selection == .battles, NSApp.isActive, online.signedIn,
                ["waiting", "active"].contains(online.roomPhase ?? "") {

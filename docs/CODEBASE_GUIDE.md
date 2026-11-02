@@ -20,8 +20,8 @@
 | `FitBOSSApp.swift` | アプリ起動・共有ストアの生成 | 履歴ストアをウィンドウ別に作らない |
 | `ContentView.swift` | ナビゲーション、画面切替、画面表示中の通信制御 | 個別画面のUIは書かない |
 | `Components/ScreenComponents.swift` | 見出し付きレイアウト、統計カード、情報パネル | 表示専用の共通部品 |
-| `Screens/HomeScreen.swift` | ホーム統計、保存履歴、各画面の入口 | 計算・保存はStore/Coreへ |
-| `Screens/BattleScreen.swift` | ルーム作成、参加、進捗、再戦 | 操作はOnlineServiceへ |
+| `Screens/HomeScreen.swift` (`BOSSHomeScreen`) | ネオンのホーム統計、保存履歴、各画面の入口 | 計算・保存はStore/Coreへ |
+| `Screens/BattleScreen.swift` (`BOSSBattleScreen`) | ルーム作成、参加、進捗、再戦 | 操作はOnlineServiceへ |
 | `Screens/TeamScreen.swift` | チーム作成/参加、Presence、ランキング | 表示とサーバー側権限制御を混同しない |
 | `Screens/AchievementsScreen.swift` | 未達成バッジの表示 | 仮の獲得実績を作らない |
 | `Screens/SettingsScreen.swift` | 認証状態、ユーザー向けプライバシー説明 | 説明を実装に一致させる |
