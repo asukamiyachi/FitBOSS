@@ -34,6 +34,14 @@ The generated visual concepts are **directional references, not literal screensh
 - Online participant progress is *provisional*, with visual bars relative to the largest currently returned count (not a verified winner, pace target, ranking or medical assessment).
 - Mac multiwindow shared history and backend authorization controls must stay intact.
 
+## Compact-window and review follow-up (2026-11-02)
+
+- **820×540 window:** With a 170pt sidebar, the remaining detail width is below `BOSSLayoutPolicy.compactTrainingBreakpoint` (770pt). The training screen therefore displays **Save / Start–Stop / camera selector / reset above the preview**, not below a 442pt camera view. The preview is clamped to 220–320pt in compact mode. The same `@StateObject CameraManager` and `AVCaptureSession` survive layout changes; no extra camera pipeline is created. The `NSViewRepresentable` preview may be re-created across a width breakpoint; verify it visually on a real Mac.
+- **Text and accessibility:** Narrow headings hide the nonessential FITBOSS wordmark; key training buttons are explicitly labeled, disabled controls remain visually dimmed, and the large numeric count has a descriptive accessibility value. Pose preview is excluded from the accessibility tree because it is purely visual; diagnostic text remains readable.
+- **Battle information hierarchy:** When no room exists, Create/Join appears before empty current-room details (especially useful in a single-column narrow view). If a room exists, progress stays first. UI clears the invite input and selected invitees on UID/team changes and prunes members no longer present in the authorized member list. The UI prominently explains when online SDK, sign-in, or team membership is missing.
+- **Deterministic tests:** `BOSSLayoutPolicyTests.swift` checks width crossover and short/normal/tall window preview heights. This **does not replace visual or camera hardware testing**.
+- **Parallel PRs:** PR #6 `feat/beta-readiness` changes README, build/DMG scripts and CI but has **no direct changed-path overlap with PR #8**. PR #7 `refactor/readable-swift-ui-structure` splits the old Home/Battle implementations out of `ContentView.swift`; both PR #7 and PR #8 change that file and must be reconciled to prevent duplicated obsolete screens. Preferred integration is #7 first, then adapt #8's routing/design components to the refactored structure; **neither PR is merged here**.
+
 ## Acceptance checklist (manual macOS)
 
 - [ ] Open new app in a small (at least 820×540) and a large window; no clipped buttons or inaccessible save control. Sidebar still navigates to account, home, workout, history, battle, team, achievements, settings.
