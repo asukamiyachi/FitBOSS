@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Shows only real room state returned by OnlineService; no fabricated opponents or scores.
