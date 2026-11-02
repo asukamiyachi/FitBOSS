@@ -49,7 +49,7 @@ struct WorkoutCameraView: View {
                             Text("記録の状態")
                                 .font(.caption)
                                 .foregroundStyle(BOSSTheme.muted)
-                            Text(lastSavedCount == nil ? "まだ保存していません" : "\(lastSavedCount!)回を保存済み")
+                            Text(lastSavedCount.map { "\($0)回を保存済み" } ?? "まだ保存していません")
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(lastSavedCount == nil ? BOSSTheme.muted : BOSSTheme.mint)
                         }
