@@ -50,6 +50,9 @@ jobs:
         if: hashFiles('Package.swift') != ''
         run: swift test
 
+      - name: Replay synthetic recognition scenarios (no camera data)
+        run: bash Scripts/evaluate-recognition.sh > .build/recognition-evaluation.json
+
       - name: Build local macOS test app
         if: hashFiles('Package.swift') != ''
         run: bash Scripts/build-app.sh

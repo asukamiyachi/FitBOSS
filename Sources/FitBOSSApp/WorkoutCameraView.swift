@@ -300,6 +300,8 @@ struct WorkoutCameraView: View {
             .foregroundStyle(camera.isRunning ? BOSSTheme.mint : BOSSTheme.muted)
         Label(phaseText, systemImage: "figure.strengthtraining.traditional")
             .foregroundStyle(BOSSTheme.muted)
+        Text(camera.trackingMessage)
+            .foregroundStyle(BOSSTheme.muted)
         Text("肘角度：\(camera.result.angleDegrees.map { String(format: "%.0f°", $0) } ?? "—")")
             .foregroundStyle(BOSSTheme.muted)
         Text("認識信頼度：\(Int(camera.result.confidence * 100))%（参考値）")
