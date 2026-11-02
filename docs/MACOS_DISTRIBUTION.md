@@ -37,11 +37,11 @@ Workflow: .github/workflows/publish-macos.yml. It requires:
 
 The workflow must **not** run on push or PR and must not create a Release if any prerequisite is missing. It uses contents:write only in the publication job. Never commit Apple certificates, API keys or tokens.
 
-**Future Firebase integration:** The main branch currently includes a camera-only app. After PR #4, re-evaluate Firebase-enabled builds, GoogleService-Info.plist, URL schemes, Keychain entitlements and distribution signing before enabling a public release. The release job must not silently ship an online build with missing Firebase configuration.
+**Optional Firebase integration:** The main branch now includes an optional Firebase/Google client foundation, but the default build is camera/local-history only. Production distribution of the online version requires a separate Firebase-enabled build, GoogleService-Info.plist, URL schemes, Keychain entitlements and Developer ID signing review. This release job builds the default offline version and must not silently ship an online app with missing configuration.
 
 ## Security and operational notes
 
 - The internal DMG is for internal testing; macOS Gatekeeper may block it because it is not notarized.
 - No Apple secrets are currently asserted to exist in the repository.
-- Never merge a PR, deploy Firebase or publish a Release as part of setting up this pipeline.
+- Merging this PR never deploys Firebase or publishes a GitHub Release. Do not dispatch the manual release job without a separate explicit authorization.
 - CI cannot verify real camera performance or end-user drag-and-drop behavior; test these manually before a public release.

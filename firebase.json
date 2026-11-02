@@ -6,6 +6,18 @@
   "database": {
     "rules": "firebase/database.rules.json"
   },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "*.local"
+      ]
+    }
+  ],
   "emulators": {
     "auth": {
       "port": 9099
@@ -15,6 +27,9 @@
     },
     "database": {
       "port": 9000
+    },
+    "functions": {
+      "port": 5001
     },
     "ui": {
       "enabled": true,
