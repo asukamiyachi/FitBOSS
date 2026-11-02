@@ -3,6 +3,17 @@ import FitBOSSCore
 @testable import FitBOSSApp
 
 final class CameraRecognitionStateTests: XCTestCase {
+    func testExerciseSwitchResetsValueAndRejectsOldFrames() {
+        var state = CameraRecognitionState()
+        let old = state.revision
+        state.select(.squat, at: 1)
+        XCTAssertEqual(state.result.exerciseID, "squat")
+        XCTAssertFalse(state.consume(frame(170,at:1.1),capturedAt:1.1,revision:old))
+        state.select(.plank, at: 2)
+        XCTAssertEqual(state.result.exerciseID, "plank")
+        XCTAssertEqual(state.result.unit, .seconds)
+        XCTAssertEqual(state.result.value, 0)
+    }
     private func frame(_ angle: Double, at time: Double) -> PoseFrame {
         let radians = angle * .pi / 180
         return PoseFrame(timestamp:time,joints:[

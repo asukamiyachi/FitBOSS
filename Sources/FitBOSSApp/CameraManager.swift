@@ -61,6 +61,7 @@ final class CameraManager: NSObject, ObservableObject {
     @Published private(set) var selectedDeviceID = ""
     @Published private(set) var pose: PoseFrame?
     @Published private(set) var result: ExerciseResult
+    @Published private(set) var exercise: LocalExercise = .pushUp
     @Published private(set) var isRunning = false
     @Published private(set) var isStarting = false
     @Published private(set) var errorMessage: String?
@@ -139,6 +140,17 @@ final class CameraManager: NSObject, ObservableObject {
         invalidateRecognition(resetCount: true)
     }
 
+    func selectExercise(_ exercise: LocalExercise) {
+        guard self.exercise != exercise else { return }
+        self.exercise = exercise
+        let now = CMTimeGetSeconds(CMClockGetTime(CMClockGetHostTimeClock()))
+        recognition.select(exercise, at: now)
+        processor.setRevision(recognition.revision)
+        pose = nil
+        result = recognition.result
+        trackingMessage = "実験中の種目です。全身が映るよう側面から撮影してください。"
+    }
+
     func stop() {
         requestRevision &+= 1
         isStarting = false
@@ -163,6 +175,10 @@ final class CameraManager: NSObject, ObservableObject {
     }
 
     private func updateTrackingMessage(_ failure: PoseDetectionFailure?) {
+        if exercise != .pushUp {
+            trackingMessage = result.phase == .ready ? "姿勢を検出中（試験判定）。無理せず休息してください。" : "側面から全身を映してください。判定は試験中です。"
+            return
+        }
         if let failure {
             switch failure {
             case .noImage: trackingMessage = "カメラの映像を取得できません。"
