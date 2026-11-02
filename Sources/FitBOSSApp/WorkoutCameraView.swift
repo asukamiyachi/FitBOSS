@@ -21,17 +21,19 @@ struct WorkoutCameraView: View {
     }
 
     var body: some View {
-        BOSSPage(title: "トレーニング", subtitle: "カメラで腕立て伏せを計測。自分のペースで進めましょう。") {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .top, spacing: 16) {
-                    cameraPanel.frame(minWidth: 430, maxWidth: .infinity)
-                    controlPanel.frame(width: 272)
+        GeometryReader { window in
+            BOSSPage(title: "トレーニング", subtitle: "カメラで腕立て伏せを計測。自分のペースで進めましょう。") {
+                if window.size.width < 770 {
+                    // At 820×540, save/start controls must be visible above the camera.
+                    compactControls
+                    cameraPanel(height: max(220, min(320, window.size.height * 0.45)))
+                } else {
+                    HStack(alignment: .top, spacing: 16) {
+                        cameraPanel(height: 442)
+                            .frame(minWidth: 430, maxWidth: .infinity)
+                        controlPanel.frame(width: 272)
+                    }
                 }
-                VStack(alignment: .leading, spacing: 16) {
-                    cameraPanel
-                    controlPanel
-                }
-            }
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 310), spacing: 16)], spacing: 16) {
                 BOSSPanel(title: "今回の計測", symbol: "chart.xyaxis.line") {
@@ -88,6 +90,7 @@ struct WorkoutCameraView: View {
                     VStack(alignment: .leading, spacing: 12) { diagnostics }
                 }
             }
+            }
         }
         .onAppear { camera.requestAndStart() }
         .onDisappear { camera.stop() }
@@ -96,11 +99,12 @@ struct WorkoutCameraView: View {
         }
     }
 
-    private var cameraPanel: some View {
+    private func cameraPanel(height: CGFloat) -> some View {
         ZStack(alignment: .topLeading) {
             Color.black
             CameraPreview(session: camera.session, pose: camera.pose)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .accessibilityHidden(true)
             VStack {
                 HStack {
                     BOSSPill(
@@ -122,6 +126,8 @@ struct WorkoutCameraView: View {
                         .font(.system(size: 90, weight: .black, design: .rounded))
                         .monospacedDigit()
                         .contentTransition(.numericText())
+                        .accessibilityLabel("腕立て伏せの計測回数")
+                        .accessibilityValue("\(camera.result.value)回")
                     Text("回 · 腕立て伏せ")
                         .font(.subheadline.weight(.bold))
                 }
@@ -148,7 +154,7 @@ struct WorkoutCameraView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             }
         }
-        .frame(height: 442)
+        .frame(height: height)
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .overlay(RoundedRectangle(cornerRadius: 20)
             .strokeBorder(BOSSTheme.blue.opacity(0.65), lineWidth: 1.5))
@@ -169,54 +175,96 @@ struct WorkoutCameraView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(BOSSTheme.muted)
                     .padding(.top, 7)
-                Picker("カメラを選択", selection: Binding(
-                    get: { camera.selectedDeviceID },
-                    set: { camera.selectCamera(id: $0) }
-                )) {
-                    if camera.devices.isEmpty {
-                        Text("カメラを検索中").tag("")
-                    }
-                    ForEach(camera.devices) { device in
-                        Text(device.name).tag(device.id)
-                    }
-                }
-                .labelsHidden()
-                .disabled(camera.isStarting || camera.devices.isEmpty)
-                .accessibilityLabel("カメラを選択")
-
-                Button {
-                    if camera.isRunning {
-                        camera.stop()
-                    } else {
-                        completionMessage = nil
-                        lastSavedCount = nil
-                        camera.requestAndStart()
-                    }
-                } label: {
-                    Label(camera.isRunning ? "カメラを停止" : "カメラを開始",
-                          systemImage: camera.isRunning ? "stop.fill" : "video.fill")
-                }
-                .buttonStyle(BOSSSecondaryButtonStyle())
-                .disabled(camera.isStarting)
-
-                Button {
-                    completionMessage = nil
-                    lastSavedCount = nil
-                    camera.resetCounter()
-                } label: {
-                    Label("カウントをリセット", systemImage: "arrow.counterclockwise")
-                }
-                .buttonStyle(BOSSSecondaryButtonStyle())
-
-                Button(action: saveWorkout) {
-                    Label("完了して記録", systemImage: "checkmark.circle.fill")
-                }
-                .buttonStyle(BOSSPrimaryButtonStyle())
-                .disabled(camera.result.value <= 0 || historyStore.storageError != nil)
-                .opacity(camera.result.value <= 0 || historyStore.storageError != nil ? 0.45 : 1)
-                .padding(.top, 6)
+                cameraPicker
+                cameraToggleButton
+                resetButton
+                saveButton
+                    .padding(.top, 6)
             }
         }
+    }
+
+    private var compactControls: some View {
+        BOSSPanel {
+            HStack(spacing: 9) {
+                saveButton
+                cameraToggleButton
+            }
+            HStack(spacing: 9) {
+                cameraPicker
+                    .frame(minWidth: 0, maxWidth: .infinity)
+                resetButton
+                    .frame(maxWidth: 190)
+            }
+            Text("現在の種目：腕立て伏せ · その他の種目は準備中")
+                .font(.caption)
+                .foregroundStyle(BOSSTheme.muted)
+            if let message = completionMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(lastSavedCount == nil ? .orange : BOSSTheme.mint)
+            }
+            if let error = historyStore.storageError {
+                Label(error, systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+        }
+    }
+
+    private var cameraPicker: some View {
+        Picker("カメラを選択", selection: Binding(
+            get: { camera.selectedDeviceID },
+            set: { camera.selectCamera(id: $0) }
+        )) {
+            if camera.devices.isEmpty {
+                Text("カメラを検索中").tag("")
+            }
+            ForEach(camera.devices) { device in
+                Text(device.name).tag(device.id)
+            }
+        }
+        .labelsHidden()
+        .disabled(camera.isStarting || camera.devices.isEmpty)
+        .accessibilityLabel("カメラを選択")
+    }
+
+    private var cameraToggleButton: some View {
+        Button {
+            if camera.isRunning {
+                camera.stop()
+            } else {
+                completionMessage = nil
+                lastSavedCount = nil
+                camera.requestAndStart()
+            }
+        } label: {
+            Label(camera.isRunning ? "カメラを停止" : "カメラを開始",
+                  systemImage: camera.isRunning ? "stop.fill" : "video.fill")
+        }
+        .buttonStyle(BOSSSecondaryButtonStyle())
+        .disabled(camera.isStarting)
+    }
+
+    private var resetButton: some View {
+        Button {
+            completionMessage = nil
+            lastSavedCount = nil
+            camera.resetCounter()
+        } label: {
+            Label("カウントをリセット", systemImage: "arrow.counterclockwise")
+        }
+        .buttonStyle(BOSSSecondaryButtonStyle())
+    }
+
+    private var saveButton: some View {
+        Button(action: saveWorkout) {
+            Label("完了して記録", systemImage: "checkmark.circle.fill")
+        }
+        .buttonStyle(BOSSPrimaryButtonStyle())
+        .disabled(camera.result.value <= 0 || historyStore.storageError != nil)
+        .accessibilityHint(camera.result.value <= 0 ? "1回以上の計測で有効になります" :
+            "運動をローカル保存し、チーム参加中は記録の概要を送信します")
     }
 
     private func selectedExercise(_ text: String, icon: String) -> some View {
