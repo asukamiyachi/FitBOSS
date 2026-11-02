@@ -2,19 +2,20 @@
 
 macOS native SwiftUI / AVFoundation / Apple Vision experimental exercise tracker.
 
-**Current phase:** a native SwiftUI seven-screen prototype with camera/pose tracking and **local-only workout history**. Home can show saved push-up sessions and exercise-day streaks, and a history calendar records workouts and rest days on this Mac. Battle, Team, Achievements and Settings are presentation-only; no Google authentication, Firebase app SDK, team join, badge progression or online play is wired yet. No fabricated records are displayed.
+**Current phase:** native SwiftUI prototype with on-device camera/pose tracking, atomic local workout history, and optional Firebase/Google online foundation. Native Google/Firebase Authentication, account restoration after restart, and own RTDB connection registration were verified against the development project. Team/room server APIs remain undeployed. See [verification and remaining work](docs/VERIFICATION_2026-11-02.md).
 
 ## Scope boundaries
 
 - **Implemented:** Home, Training, History Calendar, Battle, Team, Achievements and Settings navigation; home action links; explicit saving/deleting of local workout sessions, recorded rest days, exercise-day streaks, atomic on-device JSON persistence in Application Support (with legacy UserDefaults migration), camera selection, Apple Vision pose inference (best-effort 12fps), skeleton, counter and diagnostics, framework-independent core tests, experiment checklist.
-- **Not implemented:** working Google login, online matches, Firebase app SDK/cloud sync, team registration, leaderboards, visual game screens, character designs, achieved badges, sit-ups, squats, planks, hold timers.
+- **Optional online foundation:** dedicated Google account screen, verified native Firebase login/Keychain restoration and own RTDB connection flags. Enable with `FITBOSS_FIREBASE_ENABLED=1`; supply local SDK config, Apple Development signature and a matching macOS profile as documented in setup. Callable teams/rooms, daily participation ranking, uploads and the final-offline trigger have emulator coverage but are not deployed.
+- **Not implemented:** visual game screens, character designs, achieved badges, sit-ups, squats, planks, hold timers.
 - These future areas will be built in separate branches/modules while pose evaluation is tested. See [UI MVP](docs/UI_MVP.md) and [online contract](docs/ONLINE_DATA_SPEC.md).
 
 ## macOS requirements
 
 - macOS 14 or later and Apple Xcode / Command Line Tools with Swift 5.9+.
 - A built-in/USB/Continuity Camera, and camera permission.
-- No external runtime dependencies or Firebase SDK in the current app binary. A Firebase project and repository config are prepared independently, but there is no connection from the macOS app.
+- Default build has no Firebase dependency. Optional online build uses official Firebase and Google SDKs and local configuration described in [setup](docs/FIREBASE_SETUP.md).
 
 ## Run
 
@@ -36,6 +37,6 @@ Completed workout summaries and explicit rest days are stored as a JSON file und
 
 ## Privacy and measurement limitations
 
-All captured video is processed locally, never saved or sent anywhere. No application networking is implemented. The generated counts are experimental—not a validated assessment of correct form or health. Tracking may be inaccurate for occlusion, front-facing cameras, mirrored images, uneven lighting and very fast motion.
+All captured video is processed locally, never saved or sent anywhere. The optional online build sends completed workout summaries and connection/progress values through authenticated APIs. Camera frames and landmarks remain on this Mac. The generated counts are experimental—not a validated assessment of correct form or health. Tracking may be inaccurate for occlusion, front-facing cameras, mirrored images, uneven lighting and very fast motion.
 
 See [Architecture](docs/ARCHITECTURE.md) and [Experiment plan](docs/EXPERIMENT_PLAN.md). The independent `FitBOSSCore` package is intentionally ready for future rep- and duration-based evaluators.

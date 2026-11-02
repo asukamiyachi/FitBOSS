@@ -1,6 +1,6 @@
 # FitBOSS Firebase setup (development only)
 
-**Status:** user reports that Firebase project `fitboss-acde2` was created on 2026-11-02. No authenticated console inspection, Apple app registration, service activation, cloud connection, or deployment has been performed by this PR.
+**Current local status (2026-11-02):** CLI 15.34.1 is authenticated as the selected development account and `dev` points to `fitboss-acde2`. Firestore Standard is in `asia-northeast1`; RTDB is in `asia-southeast1`. The Cloud Functions API is disabled. Only the Realtime Database Rules were deployed after explicit user approval. No Functions/Firestore deployment or billing change occurred. Optional Firebase/Google SDK code compiles. A fresh Apple SDK config was fetched into ignored `LocalConfig/GoogleService-Info.plist`, with the expected project/bundle, OAuth IDs and database URL present. A dedicated App ID and macOS development profile were created with the user-approved personal signing team. **Real Google login and Firebase Authentication succeeded in the native application.** After explicit user approval, repository RTDB Rules were deployed and read back with exact JSON equality. The signed native app now reports successful RTDB connection-state registration. Authentication persisted across an app restart. Team/room Functions remain unavailable. Older checklist entries below describe historical setup steps, not a claim of current app connectivity.
 
 ## What is already decided
 
@@ -92,3 +92,34 @@ Before any live app data is written:
 3. Refresh `GoogleService-Info.plist` after enabling Google sign-in, keeping the downloaded file local.
 4. Write and test least-privilege membership/room Rules in Firebase Emulators. Never simply turn on `read/write = true`.
 5. Decide team membership, presence visibility, invitations, and result-validation contracts before building synchronization.
+
+
+## Native Google login and local signing
+
+The application starts on an optional account screen; local camera/history remain accessible without signing in. The online build uses Google's official SwiftUI button, copies SPM resource bundles into the app, and registers the callback scheme from the local plist. Tokens are handled by the SDKs, never printed or committed.
+
+For real login, supply an existing Apple Development identity and a matching **macOS** profile from that signing team. Profiles for other bundle IDs must not be reused. The build validates the team, bundle ID, Keychain group and profile expiry before signing with app-specific Keychain entitlements. Ad-hoc builds are for local UI/CI and cannot validate real Keychain login.
+
+```sh
+FITBOSS_FIREBASE_ENABLED=1 \
+FITBOSS_BUILD_DIR=.build/online \
+FITBOSS_BUILD_CONFIGURATION=debug \
+FITBOSS_SIGNING_IDENTITY="<existing Apple Development identity>" \
+FITBOSS_PROVISIONING_PROFILE="LocalConfig/FitBOSS.provisionprofile" \
+bash Scripts/build-app.sh
+```
+
+The dedicated profile was obtained using an ignored, local Xcode signing target under `LocalConfig/Signing`. It is valid until 2026-11-09 09:45 JST; renew the personal development profile before expiry. The app successfully launched with the profile and app-specific Keychain entitlements. No other application's profile or credentials were changed. The SDK config download and app build do not deploy Firebase services. The approved RTDB Rules deployment allows Google-authenticated users to write/delete only their own connection flags; all client reads and summary/progress writes remain denied. The previous deny-all Rules were backed up locally under `LocalConfig/Backups`. No last-offline summary trigger is deployed yet, so real last-offline timestamps, teams, rooms and rankings are not verified. Functions/Firestore deployment and any billing change still require separate authorization.
+
+References: [Google macOS Keychain prerequisites](https://developers.google.com/identity/sign-in/ios/start-integrating), [Firebase macOS Keychain capability](https://firebase.google.com/docs/auth/ios/start), [Apple default Keychain access group](https://developer.apple.com/documentation/security/sharing-access-to-keychain-items-among-a-collection-of-apps).
+
+
+### Verified native connection (2026-11-02)
+
+- App ID and matching macOS profile obtained for the approved personal team, using the existing certificate. No certificate was exported or replaced.
+- Google account selection -> native callback -> Keychain storage -> Firebase Auth sign-in succeeded.
+- Restarting the signed app restored the account without another interactive login.
+- RTDB's deployed Rules initially denied connection registration. User explicitly authorized deployment of **only** `firebase/database.rules.json` to `fitboss-acde2`.
+- `firebase deploy --only database --project fitboss-acde2` succeeded; read-back Rules matched repository JSON exactly. Native setValue acknowledgment updated the account screen to connected.
+- Cloud Functions API remains disabled; no server Functions or Firestore Rules were deployed, no team/session data was created, and no billing plan changed.
+- Normal app build, optional SDK app build and 24 Swift tests passed during this change. Physical camera testing is outside this login check.
