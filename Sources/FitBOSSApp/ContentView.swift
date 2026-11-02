@@ -228,7 +228,9 @@ private struct HomeScreen: View {
                     }
                 }
                 Button("運動履歴カレンダーを見る", action: openCalendar)
-                Text("履歴はこのMacだけに保存。Firebaseへの同期はまだ行いません。")
+                Text(online.signedIn && online.teamId != nil
+                     ? "履歴はこのMacに保存。チーム参加中に完了した運動の回数・日時はFirebaseへ自動送信します。通信失敗時は再送待ちになります。"
+                     : "履歴はこのMacに保存。Googleログインとチーム参加後に完了した運動は、回数・日時がFirebaseへ送信されます。")
                     .font(.caption).foregroundStyle(.secondary)
             }
             if let error = historyStore.storageError {
@@ -490,6 +492,8 @@ private struct SettingsScreen: View {
                 Label("カメラ映像と関節座標はこのMacで処理", systemImage: "checkmark.shield")
                 Label("Google認証が必要なチーム・対戦はサーバーで権限を検証", systemImage: "lock.shield")
                 Label("所属チームのメンバーには接続状態とオフライン経過時間が見えます", systemImage: "person.3")
+                Label("ログイン・チーム参加中の運動完了時は回数と日時をFirebaseに送信します", systemImage: "arrow.up.doc")
+                Label("カメラ映像・関節情報は送信しません", systemImage: "video.slash")
                 Text("公開・非公開の切り替えは提供しません。チームに参加する前に共有内容を確認してください。")
                     .font(.caption).foregroundStyle(.secondary)
             }
