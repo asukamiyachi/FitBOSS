@@ -2,6 +2,18 @@ import XCTest
 @testable import FitBOSSCore
 
 final class RecognitionRegressionTests: XCTestCase {
+    func testBriefTrackedArmLossRecoversWhenOtherArmIsVisible() {
+        var evaluator = PushUpEvaluator()
+        let angles = [170.0,170,135,100,95,95,95,95,125,165,170,170]
+        var result = evaluator.process(nil)
+        for (index, angle) in angles.enumerated() {
+            let time = Double(index) * 0.1
+            let left = RecognitionFixtures.Sample(time:time, angle:angle, confidence:index == 5 ? 0.2 : 0.99).frame!
+            let right = RecognitionFixtures.Sample(time:time, angle:angle, confidence:0.7, rightArm:true).frame!
+            result = evaluator.process(PoseFrame(timestamp:time, joints:left.joints.merging(right.joints) { first, _ in first }))
+        }
+        XCTAssertEqual(result.value, 1)
+    }
     func testSyntheticCorpusCountsAndOneToOneEventTiming() {
         for trial in RecognitionFixtures.trials {
             var evaluator = PushUpEvaluator(), previous = 0

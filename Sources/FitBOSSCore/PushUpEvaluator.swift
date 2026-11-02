@@ -223,8 +223,9 @@ public struct PushUpEvaluator: ExerciseEvaluator {
             switch chosen.1 {
             case .success(let sample): return (sample, .ready)
             case .failure(let reason):
-                let otherVisible = candidates.contains { $0.0 != trackedArm && (try? $0.1.get()) != nil }
-                return (nil, otherVisible ? .armChanged : reason)
+                // Another visible arm is not a switch. Keep the chosen arm locked
+                // while the bounded same-endpoint recovery policy runs.
+                return (nil, reason)
             }
         }
         let available = candidates.compactMap { try? $0.1.get() }
