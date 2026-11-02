@@ -86,6 +86,21 @@ test("callable auth, cross-team isolation, invites, concurrent capacity, withdra
   await fs.doc(`teamCodes/${crypto.createHash("sha256").update(team.inviteCode).digest("hex")}`).update({expiresAt:1});
   await rejects(()=>outsider.call("joinTeam",{inviteCode:team.inviteCode}),"permission-denied");
 });
+test("server-side membership revocation blocks private reads and allows a new team", async () => {
+  const owner = await user("revocation-owner");
+  const removed = await user("revocation-guest");
+  const team = await owner.call("createTeam", {name: "revocation-test"});
+  await removed.call("joinTeam", {inviteCode: team.inviteCode});
+  await removed.call("getTeamOverview", {teamId: team.teamId});
+  // Emulate an external administrative membership revocation.
+  await fs.doc(`teams/${team.teamId}/members/${removed.uid}`).delete();
+  await rejects(() => removed.call("getTeamOverview", {teamId: team.teamId}), "permission-denied");
+  await rejects(() => removed.call("getTeamRanking", {teamId: team.teamId, period: "week"}), "permission-denied");
+  await rejects(() => removed.call("createRoom", {teamId: team.teamId, exerciseId: "push_up"}), "permission-denied");
+  const newTeam = await removed.call("createTeam", {name: "new-team"});
+  assert.ok(newTeam.teamId);
+  await removed.call("getTeamOverview", {teamId: newTeam.teamId});
+});
 test("two devices, final disconnect trigger, duplicates, delayed events, reconnect and onDisconnect",{timeout:45000},async()=>{
   const u=await user("presence-user"), root=db.ref(`presence/${u.uid}`);
   await root.set({connections:{a:true,b:true}});
