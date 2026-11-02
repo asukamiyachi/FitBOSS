@@ -2,12 +2,12 @@
 
 macOS native SwiftUI / AVFoundation / Apple Vision experimental exercise tracker.
 
-**Current phase:** native SwiftUI prototype with on-device camera/pose tracking, atomic local workout history, and optional Firebase/Google online foundation. Cloud code and emulator tests exist; live online operation is not yet verified. See [verification and remaining work](docs/VERIFICATION_2026-11-02.md).
+**Current phase:** native SwiftUI prototype with on-device camera/pose tracking, atomic local workout history, and optional Firebase/Google online foundation. Native Google/Firebase Authentication, account restoration after restart, and own RTDB connection registration were verified against the development project. Team/room server APIs remain undeployed. See [verification and remaining work](docs/VERIFICATION_2026-11-02.md).
 
 ## Scope boundaries
 
 - **Implemented:** Home, Training, History Calendar, Battle, Team, Achievements and Settings navigation; home action links; explicit saving/deleting of local workout sessions, recorded rest days, exercise-day streaks, atomic on-device JSON persistence in Application Support (with legacy UserDefaults migration), camera selection, Apple Vision pose inference (best-effort 12fps), skeleton, counter and diagnostics, framework-independent core tests, experiment checklist.
-- **Optional online code, not deployed:** Google login, callable team/room APIs, daily participation ranking, account-bound upload queue and multi-device presence. Enable with `FITBOSS_FIREBASE_ENABLED=1`; real login/signing and cloud configuration still need verification.
+- **Optional online foundation:** dedicated Google account screen, verified native Firebase login/Keychain restoration and own RTDB connection flags. Enable with `FITBOSS_FIREBASE_ENABLED=1`; supply local SDK config, Apple Development signature and a matching macOS profile as documented in setup. Callable teams/rooms, daily participation ranking, uploads and the final-offline trigger have emulator coverage but are not deployed.
 - **Not implemented:** visual game screens, character designs, achieved badges, sit-ups, squats, planks, hold timers.
 - These future areas will be built in separate branches/modules while pose evaluation is tested. See [UI MVP](docs/UI_MVP.md) and [online contract](docs/ONLINE_DATA_SPEC.md).
 

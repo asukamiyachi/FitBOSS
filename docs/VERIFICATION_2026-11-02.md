@@ -1,5 +1,11 @@
 # Online foundation follow-up (2026-11-02)
 
+## Later native connection verification
+
+A subsequent user-approved session verified native Google/Firebase Auth login, Keychain restoration after restart, and acknowledged own RTDB connection registration against `fitboss-acde2`. A matching macOS development profile was obtained from the approved personal team. Only the RTDB Rules were deployed, with explicit user authorization, and their read-back JSON matched the repository. Firestore Standard is in Tokyo (`asia-northeast1`); RTDB is in Singapore (`asia-southeast1`). Cloud Functions API remains disabled; Functions and Firestore Rules were not deployed. No billing change or PR/main merge occurred. See [current native setup](FIREBASE_SETUP.md) for the verified scope and local profile expiry.
+
+The sections below preserve the earlier pre-native verification snapshot; statements that no real login/deployment had occurred describe that earlier stage.
+
 ## Changes
 
 - Integrated PR #3 through `e8db5d2` without rewriting history. Atomic workout file persistence, legacy migration protection and JST labels remain intact.
