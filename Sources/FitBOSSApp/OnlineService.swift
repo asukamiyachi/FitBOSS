@@ -20,8 +20,12 @@ struct RoomProgress: Identifiable {
     let repetitions: Int
     var id: String { uid }
 }
-/// API access is gated by Google auth and trusted callable functions.
+/// Coordinates optional Firebase authentication, team membership, room state,
+/// and online requests. Local workout history is owned by WorkoutHistoryStore;
+/// raw camera frames and pose landmarks are never sent to this service.
+/// The build without FITBOSS_FIREBASE_ENABLED provides a disabled online shell.
 @MainActor final class OnlineService: ObservableObject {
+    // MARK: - State exposed to SwiftUI
     @Published private(set) var isSigningIn = false
     @Published private(set) var signInMessage: String?
     @Published private(set) var databaseStatus = "未接続"
@@ -39,6 +43,8 @@ struct RoomProgress: Identifiable {
     @Published private(set) var ranking: [TeamRank] = []
     @Published private(set) var pastRooms: [PastRoom] = []
     @Published private(set) var roomProgress: [RoomProgress] = []
+    // MARK: - Request throttling and concurrency
+    // Keep read coalescing distinct from mutation-tracker button disabling.
     private var readsInFlight: Set<String> = []
     private var nextProgressRead = Date.distantPast
     private var progressBackoff: TimeInterval = 3
@@ -60,13 +66,20 @@ struct RoomProgress: Identifiable {
                 UserDefaults.standard.removeObject(forKey: key)
             }
         }
-        teamId = nil; teamInviteCode = nil
-        roomId = nil; roomInviteCode = nil; roomPhase = nil
-        members = []; ranking = []; pastRooms = []; roomProgress = []
+        teamId = nil
+        teamInviteCode = nil
+        roomId = nil
+        roomInviteCode = nil
+        roomPhase = nil
+        members = []
+        ranking = []
+        pastRooms = []
+        roomProgress = []
         nextProgressRead = .distantPast
         errorMessage = "チームへのアクセス権が失効しました。必要に応じて再参加してください。"
     }
 
+    // MARK: - Firebase-only resources
     #if FITBOSS_FIREBASE_ENABLED
     private var listener: AuthStateDidChangeListenerHandle?
     private var functions: Functions?
@@ -76,6 +89,7 @@ struct RoomProgress: Identifiable {
     private var connectionHandle: DatabaseHandle?
     #endif
 
+    // MARK: - Initialization and authentication
     init() {
         #if FITBOSS_FIREBASE_ENABLED
         guard let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
@@ -95,9 +109,15 @@ struct RoomProgress: Identifiable {
                 guard let self else { return }
                 self.stopPresence()
                 if self.uid != user?.uid {
-                    self.teamId = nil; self.members = []; self.ranking = []; self.pastRooms = []
-                    self.roomId = nil; self.roomProgress = []; self.roomPhase = nil
-                    self.teamInviteCode = nil; self.roomInviteCode = nil
+                    self.teamId = nil
+                    self.members = []
+                    self.ranking = []
+                    self.pastRooms = []
+                    self.roomId = nil
+                    self.roomProgress = []
+                    self.roomPhase = nil
+                    self.teamInviteCode = nil
+                    self.roomInviteCode = nil
                 }
                 self.accountEmail = user?.email
                 self.displayName = user?.displayName
@@ -108,7 +128,17 @@ struct RoomProgress: Identifiable {
                     self.teamId = UserDefaults.standard.string(forKey: "fitboss.lastTeamID." + uid + "")
                     if self.teamId != nil { self.loadTeam() }
                 }
-                else { self.teamId = nil; self.members = []; self.ranking = []; self.pastRooms = []; self.roomId = nil; self.roomProgress = []; self.teamInviteCode = nil; self.roomInviteCode = nil; self.roomPhase = nil }
+                else {
+                    self.teamId = nil
+                    self.members = []
+                    self.ranking = []
+                    self.pastRooms = []
+                    self.roomId = nil
+                    self.roomProgress = []
+                    self.teamInviteCode = nil
+                    self.roomInviteCode = nil
+                    self.roomPhase = nil
+                }
             }
         }
         #else
@@ -169,6 +199,7 @@ struct RoomProgress: Identifiable {
         #endif
     }
 
+    // MARK: - Team membership and rankings
     private func saveSelectedTeam() {
         if let uid, let teamId { UserDefaults.standard.set(teamId,forKey:"fitboss.lastTeamID." + uid + "") }
     }
@@ -224,6 +255,7 @@ struct RoomProgress: Identifiable {
             }
         }
     }
+    // MARK: - Match rooms and live progress
     func createRoom(invitedUids: [String]) {
         guard let teamId else { return }
         call("createRoom", ["teamId":teamId,"exerciseId":"push_up","invitedUids":invitedUids]) { result in
@@ -279,6 +311,8 @@ struct RoomProgress: Identifiable {
             self.roomPhase = "waiting"
         }
     }
+    // MARK: - Completed workout upload
+    // The queue and local history live outside this service; only summaries travel.
     func submitWorkout(_ session: SavedWorkout, onSynced: (() -> Void)? = nil) {
         guard let teamId, !uploadsInFlight.contains(session.id) else { return }
         uploadsInFlight.insert(session.id)
@@ -288,6 +322,7 @@ struct RoomProgress: Identifiable {
             "completedAt":Int(session.completedAt.timeIntervalSince1970*1000)
         ], onComplete: { self.uploadsInFlight.remove(session.id) }) { _ in onSynced?() }
     }
+    // MARK: - Authenticated Cloud Functions calls
     private func call(_ name: String, _ data: [String: Any], onComplete: (() -> Void)? = nil, onSuccess: @escaping ([String: Any])->Void) {
         guard signedIn else { onComplete?(); errorMessage = "Googleログインが必要です。"; return }
         #if FITBOSS_FIREBASE_ENABLED
@@ -334,6 +369,7 @@ struct RoomProgress: Identifiable {
         onComplete?()
         #endif
     }
+    // MARK: - Presence (per-device RTDB connections)
     #if FITBOSS_FIREBASE_ENABLED
     private func startPresence(uid: String) {
         guard let url = FirebaseApp.app()?.options.databaseURL, !url.isEmpty else {
