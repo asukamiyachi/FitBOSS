@@ -2,22 +2,24 @@
   "rules": {
     ".read": false,
     ".write": false,
-    "presenceConnections": {
-      "$uid": {
-        "$connectionId": {
-          ".read": false,
-          ".write": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider === 'google.com' && $connectionId.matches(/^[A-Za-z0-9_-]{1,80}$/) && (!newData.exists() || newData.val() === true)",
-          ".validate": "newData.val() === true"
-        }
-      }
-    },
-    "presenceSummary": {
-      ".read": false,
-      ".write": false
-    },
     "roomProgress": {
       ".read": false,
       ".write": false
+    },
+    "presence": {
+      "$uid": {
+        "connections": {
+          "$connectionId": {
+            ".read": false,
+            ".write": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider === 'google.com' && $connectionId.matches(/^[A-Za-z0-9_-]{1,80}$/) && (!newData.exists() || newData.val() === true)",
+            ".validate": "newData.val() === true"
+          }
+        },
+        "summary": {
+          ".write": false,
+          ".read": false
+        }
+      }
     }
   }
 }

@@ -77,6 +77,12 @@ struct ContentView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
+        .onReceive(Timer.publish(every: 3, on: .main, in: .common).autoconnect()) { _ in
+            if selection == .battles, NSApp.isActive, online.signedIn,
+               ["waiting", "active"].contains(online.roomPhase ?? "") {
+                online.refreshRoomProgress()
+            }
+        }
         .onChange(of: online.teamId) { _ in uploadPendingWorkouts() }
         .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
             if online.signedIn && online.teamId != nil {
@@ -87,10 +93,10 @@ struct ContentView: View {
     }
 
     private func uploadPendingWorkouts() {
-        guard online.signedIn, let teamId = online.teamId else { return }
-        for session in workoutHistory.pendingSessions(for: teamId).prefix(5) {
+        guard online.signedIn, let uid = online.uid, let teamId = online.teamId else { return }
+        for session in workoutHistory.pendingSessions(uid: uid, for: teamId).prefix(5) {
             online.submitWorkout(session) {
-                workoutHistory.markSynced(sessionID: session.id, teamId: teamId)
+                workoutHistory.markSynced(sessionID: session.id, uid: uid, teamId: teamId)
             }
         }
     }

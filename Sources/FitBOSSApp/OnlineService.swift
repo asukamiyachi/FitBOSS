@@ -2,7 +2,7 @@ import AppKit
 import Combine
 import FitBOSSCore
 import Foundation
-#if canImport(FirebaseCore) && canImport(FirebaseAuth) && canImport(FirebaseFunctions) && canImport(FirebaseDatabase) && canImport(GoogleSignIn)
+#if FITBOSS_FIREBASE_ENABLED
 import FirebaseCore
 import FirebaseAuth
 import FirebaseFunctions
@@ -34,20 +34,25 @@ struct RoomProgress: Identifiable {
     @Published private(set) var ranking: [TeamRank] = []
     @Published private(set) var pastRooms: [PastRoom] = []
     @Published private(set) var roomProgress: [RoomProgress] = []
+    private var readsInFlight: Set<String> = []
+    private var nextProgressRead = Date.distantPast
+    private var progressBackoff: TimeInterval = 3
+    private var uploadsInFlight: Set<UUID> = []
     private var lastProgressSubmission: Date = .distantPast
     @Published private(set) var errorMessage: String?
     @Published private(set) var isWorking = false
 
-    #if canImport(FirebaseCore) && canImport(FirebaseAuth) && canImport(FirebaseFunctions) && canImport(FirebaseDatabase) && canImport(GoogleSignIn)
+    #if FITBOSS_FIREBASE_ENABLED
     private var listener: AuthStateDidChangeListenerHandle?
     private var functions: Functions?
+    private var presenceGeneration = UUID()
     private var connectionRef: DatabaseReference?
     private var connectedRef: DatabaseReference?
     private var connectionHandle: DatabaseHandle?
     #endif
 
     init() {
-        #if canImport(FirebaseCore) && canImport(FirebaseAuth) && canImport(FirebaseFunctions) && canImport(FirebaseDatabase) && canImport(GoogleSignIn)
+        #if FITBOSS_FIREBASE_ENABLED
         guard let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
               let options = FirebaseOptions(contentsOfFile: path),
               options.projectID == "fitboss-acde2" else {
@@ -61,6 +66,11 @@ struct RoomProgress: Identifiable {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.stopPresence()
+                if self.uid != user?.uid {
+                    self.teamId = nil; self.members = []; self.ranking = []; self.pastRooms = []
+                    self.roomId = nil; self.roomProgress = []; self.roomPhase = nil
+                    self.teamInviteCode = nil; self.roomInviteCode = nil
+                }
                 self.uid = user?.uid
                 self.signedIn = user != nil && user?.providerData.contains(where: { $0.providerID == "google.com" }) == true
                 if self.signedIn, let uid = user?.uid {
@@ -68,7 +78,7 @@ struct RoomProgress: Identifiable {
                     self.teamId = UserDefaults.standard.string(forKey: "fitboss.lastTeamID." + uid + "")
                     if self.teamId != nil { self.loadTeam() }
                 }
-                else { self.teamId = nil; self.members = []; self.ranking = []; self.roomId = nil }
+                else { self.teamId = nil; self.members = []; self.ranking = []; self.pastRooms = []; self.roomId = nil; self.roomProgress = []; self.teamInviteCode = nil; self.roomInviteCode = nil; self.roomPhase = nil }
             }
         }
         #else
@@ -77,7 +87,7 @@ struct RoomProgress: Identifiable {
     }
 
     func signIn() {
-        #if canImport(FirebaseCore) && canImport(FirebaseAuth) && canImport(FirebaseFunctions) && canImport(FirebaseDatabase) && canImport(GoogleSignIn)
+        #if FITBOSS_FIREBASE_ENABLED
         guard configured, let clientID = FirebaseApp.app()?.options.clientID,
               let window = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible }) else {
             errorMessage = "ログイン設定かウィンドウが見つかりません。"; return
@@ -106,7 +116,7 @@ struct RoomProgress: Identifiable {
     }
 
     func signOut() {
-        #if canImport(FirebaseAuth) && canImport(GoogleSignIn)
+        #if FITBOSS_FIREBASE_ENABLED
         stopPresence()
         do { try Auth.auth().signOut(); GIDSignIn.sharedInstance.signOut() }
         catch { errorMessage = error.localizedDescription }
@@ -137,9 +147,12 @@ struct RoomProgress: Identifiable {
         call("leaveTeam", ["teamId":teamId]) { _ in
             if let uid = self.uid { UserDefaults.standard.removeObject(forKey:"fitboss.lastTeamID." + uid + "") }
             self.teamId = nil; self.members = []; self.ranking = []; self.pastRooms = []; self.roomId = nil
+            self.roomProgress = []; self.roomPhase = nil; self.roomInviteCode = nil; self.teamInviteCode = nil
         }
     }
-    func loadTeam(period: String = "week") {
+    private var rankingPeriod = "week"
+    func loadTeam(period: String? = nil) {
+        if let period { rankingPeriod = period }
         guard let teamId else { return }
         call("getTeamOverview", ["teamId":teamId]) { result in
             let items = result["members"] as? [[String: Any]] ?? []
@@ -149,7 +162,8 @@ struct RoomProgress: Identifiable {
                 return TeamPresence(uid: id, online: online, lastOfflineAt: ms.map { Date(timeIntervalSince1970:$0/1000) })
             }
         }
-        call("getTeamRanking", ["teamId":teamId, "period":period]) { result in
+        call("getTeamRanking", ["teamId":teamId, "period":rankingPeriod]) { result in
+            guard result["period"] as? String == self.rankingPeriod else { return }
             let rows = result["ranks"] as? [[String: Any]] ?? []
             self.ranking = rows.compactMap { row in
                 guard let id = row["uid"] as? String, let days = row["days"] as? Int else { return nil }
@@ -185,8 +199,10 @@ struct RoomProgress: Identifiable {
         call("startRoom", ["roomId": roomId]) { _ in self.roomPhase = "active"; self.refreshRoomProgress() }
     }
     func refreshRoomProgress() {
-        guard let roomId else { return }
+        guard Date() >= nextProgressRead, let roomId else { return }
         call("getRoomProgress", ["roomId": roomId]) { result in
+            self.progressBackoff = 3
+            self.nextProgressRead = Date().addingTimeInterval(3)
             self.roomPhase = result["phase"] as? String
             let rows = result["participants"] as? [[String: Any]] ?? []
             self.roomProgress = rows.compactMap { row in
@@ -218,52 +234,76 @@ struct RoomProgress: Identifiable {
         }
     }
     func submitWorkout(_ session: SavedWorkout, onSynced: (() -> Void)? = nil) {
-        guard let teamId else { return }
+        guard let teamId, !uploadsInFlight.contains(session.id) else { return }
+        uploadsInFlight.insert(session.id)
         call("submitWorkout", [
             "teamId":teamId, "sessionId":session.id.uuidString.lowercased(),
             "exerciseId":session.exerciseID, "repetitions":session.repetitions,
             "completedAt":Int(session.completedAt.timeIntervalSince1970*1000)
-        ]) { _ in onSynced?(); self.loadTeam() }
+        ], onComplete: { self.uploadsInFlight.remove(session.id) }) { _ in onSynced?() }
     }
-    private func call(_ name: String, _ data: [String: Any], onSuccess: @escaping ([String: Any])->Void) {
-        guard signedIn else { errorMessage = "Googleログインが必要です。"; return }
-        #if canImport(FirebaseFunctions)
-        guard let functions else { errorMessage = "Firebase Functionsが未設定です。"; return }
+    private func call(_ name: String, _ data: [String: Any], onComplete: (() -> Void)? = nil, onSuccess: @escaping ([String: Any])->Void) {
+        guard signedIn else { onComplete?(); errorMessage = "Googleログインが必要です。"; return }
+        #if FITBOSS_FIREBASE_ENABLED
+        guard let functions else { onComplete?(); errorMessage = "Firebase Functionsが未設定です。"; return }
+        let isRead = name.hasPrefix("get") || name.hasPrefix("list")
+        if isRead && readsInFlight.contains(name) { onComplete?(); return }
+        if isRead { readsInFlight.insert(name) }
+        let requestUID = uid, requestTeam = teamId, requestRoom = roomId
         isWorking = true
         Task {
-            defer { isWorking = false }
+            defer { isWorking = false; if isRead { readsInFlight.remove(name) }; onComplete?() }
             do {
                 let result = try await functions.httpsCallable(name).call(data)
                 guard let object = result.data as? [String: Any] else { throw NSError(domain:"FitBOSS",code:0) }
+                guard signedIn, uid == requestUID, teamId == requestTeam, roomId == requestRoom else { return }
                 errorMessage = nil
                 onSuccess(object)
-            } catch { errorMessage = error.localizedDescription }
+            } catch {
+                guard uid == requestUID, teamId == requestTeam else { return }
+                errorMessage = error.localizedDescription
+                if name == "getRoomProgress" {
+                    progressBackoff = min(progressBackoff * 2, 60)
+                    nextProgressRead = Date().addingTimeInterval(progressBackoff)
+                }
+                if (error as NSError).code == FunctionsErrorCode.permissionDenied.rawValue {
+                    members = []; ranking = []; pastRooms = []; roomProgress = []
+                }
+            }
         }
+        #else
+        onComplete?()
         #endif
     }
-    #if canImport(FirebaseDatabase)
+    #if FITBOSS_FIREBASE_ENABLED
     private func startPresence(uid: String) {
         guard let url = FirebaseApp.app()?.options.databaseURL, !url.isEmpty else {
             errorMessage = "FirebaseのRealtime Database URLが設定されていません。"; return
         }
         let database = Database.database(url: url)
         let connected = database.reference(withPath: ".info/connected")
-        let own = database.reference(withPath: "presenceConnections/\(uid)").childByAutoId()
+        let own = database.reference(withPath: "presence/\(uid)/connections").childByAutoId()
         connectionRef = own
         connectedRef = connected
+        let generation = presenceGeneration
         connectionHandle = connected.observe(.value) { [weak self] snap in
             guard snap.value as? Bool == true else { return }
             own.onDisconnectRemoveValue { error, _ in
-                if error == nil { own.setValue(true) }
+                if error == nil {
+                    Task { @MainActor [weak self] in
+                        guard self?.presenceGeneration == generation, self?.uid == uid, self?.signedIn == true else { return }
+                        own.setValue(true)
+                    }
+                }
                 else { Task { @MainActor [weak self] in self?.errorMessage = "オンライン状態の登録に失敗しました。" } }
             }
         }
     }
     #endif
     private func stopPresence() {
-        #if canImport(FirebaseDatabase)
+        #if FITBOSS_FIREBASE_ENABLED
+        presenceGeneration = UUID()
         if let connectedRef, let connectionHandle { connectedRef.removeObserver(withHandle:connectionHandle) }
-        connectionRef?.cancelDisconnectOperations()
         connectionRef?.removeValue()
         connectionRef = nil; connectedRef = nil; connectionHandle = nil
         #endif

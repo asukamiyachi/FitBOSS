@@ -4,8 +4,9 @@ const {onCall,HttpsError}=require("firebase-functions/v2/https");
 const {onValueWritten}=require("firebase-functions/v2/database");
 const {initializeApp}=require("firebase-admin/app");
 const {getFirestore,FieldValue}=require("firebase-admin/firestore");
-const {getDatabase,ServerValue}=require("firebase-admin/database");
+const {getDatabase}=require("firebase-admin/database");
 const d=require("./domain");
+const {reconcilePresence}=require("./presence");
 initializeApp();
 const fs=getFirestore();
 const REGION="asia-southeast1"; // RTDB location must be independently confirmed before deploy.
@@ -27,11 +28,13 @@ async function makeRoom(teamId,uid,exerciseId,invitees){
   for(const target of invited)await requireMember(teamId,target);
   const id=fs.collection("rooms").doc().id;
   const secret=d.code(), now=Date.now(), expiresAt=now+24*3600000;
-  const batch=fs.batch();
-  batch.create(fs.doc("rooms/"+id),{teamId,hostUid:uid,exerciseId,phase:"waiting",capacity:6,
-    participantUids:[uid],invitedUids:invited,createdAt:now,expiresAt,completedAt:null});
-  batch.create(roomCodeRef(secret),{roomId:id,teamId,expiresAt});
-  await batch.commit();
+  await fs.runTransaction(async tx=>{
+    const checks=await Promise.all([uid,...invited].map(member=>tx.get(memberRef(teamId,member))));
+    if(checks.some(member=>!member.exists))d.fail("permission-denied","チームに所属していません");
+    tx.create(fs.doc("rooms/"+id),{teamId,hostUid:uid,exerciseId,phase:"waiting",capacity:6,
+      participantUids:[uid],invitedUids:invited,createdAt:now,expiresAt,completedAt:null});
+    tx.create(roomCodeRef(secret),{roomId:id,teamId,expiresAt});
+  });
   return {roomId:id,inviteCode:secret,expiresAt,invitedUids:invited};
 }
 exports.createTeam=callable(async({data},uid)=>{
@@ -73,13 +76,14 @@ exports.createRoom=callable(async({data},uid)=>{
   return makeRoom(teamId,uid,data?.exerciseId,data?.invitedUids||[]);
 });
 exports.joinRoom=callable(async({data},uid)=>{
-  const code=data?.inviteCode,inv=await roomCodeRef(code).get();
-  if(!inv.exists||inv.data().expiresAt<=Date.now())d.fail("permission-denied","招待が無効です");
-  const {teamId,roomId}=inv.data();
-  await requireMember(teamId,uid);
-  const room=fs.doc("rooms/"+roomId);
+  const invitationRef=roomCodeRef(data?.inviteCode);
   return fs.runTransaction(async tx=>{
-    const snapshot=await tx.get(room);
+    const inv=await tx.get(invitationRef);
+    if(!inv.exists||inv.data().expiresAt<=Date.now())d.fail("permission-denied","招待が無効です");
+    const {teamId,roomId}=inv.data();
+    const room=fs.doc("rooms/"+roomId);
+    const [snapshot,member]=await Promise.all([tx.get(room),tx.get(memberRef(teamId,uid))]);
+    if(!member.exists)d.fail("permission-denied","チームに所属していません");
     if(!snapshot.exists)d.fail("not-found","ルームがありません");
     const item=snapshot.data();
     if(item.teamId!==teamId||item.phase!=="waiting"||item.expiresAt<=Date.now())
@@ -197,12 +201,9 @@ exports.getTeamOverview=callable(async({data},uid)=>{
   const ids=members.docs.map(x=>x.id);
   const database=getDatabase();
   const results=await Promise.all(ids.map(async memberId=>{
-    const [connections,state]=await Promise.all([
-      database.ref("presenceConnections/"+memberId).get(),
-      database.ref("presenceSummary/"+memberId).get()
-    ]);
-    const count=connections.exists()?Object.keys(connections.val()).length:0;
-    return {uid:memberId,...d.offline(count,state.val()?.lastOfflineAt)};
+    const state=(await database.ref("presence/"+memberId).get()).val();
+    const count=Object.keys(state?.connections||{}).length;
+    return {uid:memberId,...d.offline(count,state?.summary?.lastOfflineAt)};
   }));
   return {teamId,members:results};
 });
@@ -225,11 +226,9 @@ exports.listPastRooms=callable(async({data},uid)=>{
 });
 // RTDB client can only mutate its own ephemeral connections; no client can read any other path.
 // This trigger is deployed in the RTDB instance's own region, not Firestore's.
-exports.updatePresence=onValueWritten({region:REGION,ref:"/presenceConnections/{uid}/{connectionId}"},async event=>{
-  const uid=event.params.uid;
-  const db=getDatabase();
-  const current=await db.ref("presenceConnections/"+uid).get();
-  const hasConnections=current.exists()&&Object.keys(current.val()).length>0;
-  const lastOfflineAt=hasConnections?null:ServerValue.TIMESTAMP;
-  await db.ref("presenceSummary/"+uid).update({online:hasConnections,lastOfflineAt,updatedAt:ServerValue.TIMESTAMP});
+// The local RTDB emulator exposes its default namespace in us-central1.
+const databaseRegion=process.env.FUNCTIONS_EMULATOR==="true"?"us-central1":REGION;
+exports.updatePresence=onValueWritten({region:databaseRegion,ref:"/presence/{uid}/connections"},async event=>{
+  if (!event.data.before.exists() || event.data.after.exists()) return;
+  await reconcilePresence(event.data.after.ref.database,event.params.uid,Date.parse(event.time));
 });

@@ -7,13 +7,11 @@ final class WorkoutHistoryStore: ObservableObject {
     @Published private(set) var history: WorkoutHistory
     @Published private(set) var storageError: String?
 
-    private let defaults: UserDefaults
-    private let pendingKey = "fitboss.localUploadQueue.v1"
-    @Published private(set) var pendingUploads: [String: String] = [:]
     private let persistence: WorkoutHistoryPersistence?
+    private var queueURL: URL?
+    private var queue = WorkoutUploadQueue()
 
-    init(persistence: WorkoutHistoryPersistence? = nil, defaults: UserDefaults = .standard) {
-        self.defaults = defaults
+    init(persistence: WorkoutHistoryPersistence? = nil) {
         do {
             let storage = try persistence ?? WorkoutHistoryPersistence.appStorage()
             let saved = try storage.load()
@@ -24,34 +22,39 @@ final class WorkoutHistoryStore: ObservableObject {
             self.history = WorkoutHistory()
             self.storageError = "運動記録を読み込めないか、旧データを移行できません。元のデータを保護するため保存を停止しています。"
         }
-        if let data = defaults.data(forKey: pendingKey) {
-            do { pendingUploads = try JSONDecoder().decode([String: String].self, from: data) }
-            catch {
-                storageError = "送信待ち記録を読み込めません。データを守るため保存を停止しています。"
+        do {
+            if let persistence = self.persistence {
+                let url = persistence.fileURL.deletingLastPathComponent().appendingPathComponent("workout-upload-queue-v2.json")
+                queue = try WorkoutUploadQueue.load(from: url)
+                queueURL = url
             }
+        } catch {
+            storageError = "送信待ち記録を読み込めません。元データを保護するため保存を停止しています。"
         }
     }
 
-    func enqueue(sessionID: UUID, teamId: String) {
-        guard storageError == nil,
-              history.sessions.contains(where: { $0.id == sessionID }) else { return }
-        pendingUploads[sessionID.uuidString] = teamId
-        persistPending()
+    func enqueue(sessionID: UUID, uid: String, teamId: String) {
+        guard storageError == nil, history.sessions.contains(where: { $0.id == sessionID }) else { return }
+        var next = queue
+        next.enqueue(sessionID, uid: uid, teamID: teamId)
+        persistQueue(next)
     }
 
-    func markSynced(sessionID: UUID, teamId: String) {
-        guard pendingUploads[sessionID.uuidString] == teamId else { return }
-        pendingUploads.removeValue(forKey: sessionID.uuidString)
-        persistPending()
+    func markSynced(sessionID: UUID, uid: String, teamId: String) {
+        guard queue.contains(sessionID, uid: uid, teamID: teamId) else { return }
+        var next = queue
+        next.remove(sessionID)
+        persistQueue(next)
     }
 
-    func pendingSessions(for teamId: String) -> [SavedWorkout] {
-        history.sessions.filter { pendingUploads[$0.id.uuidString] == teamId }
+    func pendingSessions(uid: String, for teamId: String) -> [SavedWorkout] {
+        history.sessions.filter { queue.contains($0.id, uid: uid, teamID: teamId) }
     }
 
-    private func persistPending() {
-        do { defaults.set(try JSONEncoder().encode(pendingUploads), forKey: pendingKey) }
-        catch { storageError = "送信待ち記録の保存に失敗しました。" }
+    private func persistQueue(_ next: WorkoutUploadQueue) {
+        guard storageError == nil, let queueURL else { return }
+        do { try next.save(to: queueURL); queue = next }
+        catch { storageError = "送信待ち記録を保存できません。元の記録を保持しています。" }
     }
 
     /// Returns false when no positive-count exercise exists or storage is not safe to overwrite.
@@ -78,8 +81,9 @@ final class WorkoutHistoryStore: ObservableObject {
         guard next.removeSession(id: id) else { return false }
         let removed = save(next)
         if removed {
-            pendingUploads.removeValue(forKey: id.uuidString)
-            persistPending()
+            var nextQueue = queue
+            nextQueue.remove(id)
+            persistQueue(nextQueue)
         }
         return removed
     }

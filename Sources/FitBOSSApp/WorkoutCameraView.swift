@@ -49,10 +49,10 @@ struct WorkoutCameraView: View {
                     let previousIDs = Set(historyStore.history.sessions.map { $0.id })
                     if historyStore.recordPushUps(count) {
                         if let session = historyStore.history.sessions.first(where: { !previousIDs.contains($0.id) }),
-                           let teamId = online.teamId {
-                            historyStore.enqueue(sessionID: session.id, teamId: teamId)
+                           let teamId = online.teamId, let uid = online.uid {
+                            historyStore.enqueue(sessionID: session.id, uid: uid, teamId: teamId)
                             online.submitWorkout(session) {
-                                historyStore.markSynced(sessionID: session.id, teamId: teamId)
+                                historyStore.markSynced(sessionID: session.id, uid: uid, teamId: teamId)
                             }
                         }
                         camera.stop()

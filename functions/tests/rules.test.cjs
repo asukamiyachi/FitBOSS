@@ -24,20 +24,21 @@ test("Firestore rejects every unauthenticated or forged direct team write",async
 test("RTDB connection updates are user-scoped and value-limited",async()=>{
   const alice=google("alice").database(),bob=google("bob").database();
   const anon=env.unauthenticatedContext().database();
-  const own=alice.ref("presenceConnections/alice/device-A");
+  const own=alice.ref("presence/alice/connections/device-A");
   await assertSucceeds(own.set(true));
-  await assertFails(bob.ref("presenceConnections/alice/device-B").set(true));
-  await assertFails(anon.ref("presenceConnections/alice/device-C").set(true));
-  await assertFails(alice.ref("presenceConnections/alice/device-B").set("offline"));
-  await assertFails(alice.ref("presenceConnections/alice/bad.path").set(true));
+  await assertFails(bob.ref("presence/alice/connections/device-B").set(true));
+  await assertFails(anon.ref("presence/alice/connections/device-C").set(true));
+  await assertFails(alice.ref("presence/alice/connections/device-B").set("offline"));
+  await assertFails(alice.ref("presence/alice/connections/bad:path").set(true));
+  assert.throws(() => alice.ref("presence/alice/connections/bad.path"), /invalid path/i);
   await assertSucceeds(own.remove());
 });
 test("RTDB team presence, private summary and room progress are not exposed to clients",async()=>{
   const alice=google("alice").database();
-  await assertFails(alice.ref("presenceConnections/alice").once("value"));
-  await assertFails(alice.ref("presenceConnections/bob").once("value"));
-  await assertFails(alice.ref("presenceSummary/bob").once("value"));
-  await assertFails(alice.ref("presenceSummary/alice").set({lastOfflineAt:1}));
+  await assertFails(alice.ref("presence/alice/connections").once("value"));
+  await assertFails(alice.ref("presence/bob/connections").once("value"));
+  await assertFails(alice.ref("presence/bob/summary").once("value"));
+  await assertFails(alice.ref("presence/alice/summary").set({lastOfflineAt:1}));
   await assertFails(alice.ref("roomProgress/room1").once("value"));
   await assertFails(alice.ref("roomProgress/room1/alice").set({value:9999}));
 });

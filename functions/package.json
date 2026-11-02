@@ -9,7 +9,8 @@
   "scripts": {
     "test": "node --test tests/domain.test.cjs",
     "test:rules": "node --test tests/rules.test.cjs",
-    "check": "node --check src/domain.js && node --check src/index.js && node --check tests/domain.test.cjs && node --check tests/rules.test.cjs"
+    "check": "node --check src/domain.js && node --check src/index.js && node --check tests/domain.test.cjs && node --check tests/rules.test.cjs && node --check src/presence.js && node --check tests/integration.test.cjs",
+    "test:integration": "node --test --test-force-exit tests/integration.test.cjs"
   },
   "dependencies": {
     "firebase-admin": "^13.0.0",

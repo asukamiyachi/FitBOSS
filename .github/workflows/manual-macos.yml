@@ -84,7 +84,7 @@ jobs:
           PY
 
   security-rules:
-    name: Firebase Security Rules emulator (no deploy)
+    name: Firebase Rules and Functions integration (no deploy)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -100,8 +100,8 @@ jobs:
           java-version: "21"
       - name: Install emulator test dependencies
         run: npm install --prefix functions --no-package-lock --ignore-scripts
-      - name: Run local Firestore and Realtime Database Rules tests
-        run: npx --yes firebase-tools@14 emulators:exec --project demo-fitboss-rules --only firestore,database "cd functions && npm run test:rules"
+      - name: Run local Rules and authenticated Functions integration tests
+        run: npx --yes firebase-tools@14 emulators:exec --project demo-fitboss-rules --only auth,firestore,database,functions "cd functions && npm run test:rules && npm run test:integration"
 
   native-firebase-compile:
     name: macOS official Firebase SDK compile (no config, no deploy)

@@ -29,7 +29,7 @@ let package = Package(
     dependencies: extraPackages,
     targets: [
         .target(name: "FitBOSSCore", path: "Sources/FitBOSSCore"),
-        .executableTarget(name: "FitBOSSApp", dependencies: appDependencies, path: "Sources/FitBOSSApp"),
+        .executableTarget(name: "FitBOSSApp", dependencies: appDependencies, path: "Sources/FitBOSSApp", swiftSettings: enabled ? [.define("FITBOSS_FIREBASE_ENABLED")] : []),
         .testTarget(name: "FitBOSSCoreTests", dependencies: ["FitBOSSCore"], path: "Tests/FitBOSSCoreTests")
     ]
 )

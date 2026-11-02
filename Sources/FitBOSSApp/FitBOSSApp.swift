@@ -1,5 +1,5 @@
 import SwiftUI
-#if canImport(GoogleSignIn)
+#if FITBOSS_FIREBASE_ENABLED
 import GoogleSignIn
 #endif
 
@@ -10,7 +10,7 @@ struct FitBOSSApp: App {
             ContentView()
                 .frame(minWidth: 820, minHeight: 540)
                 .onOpenURL { url in
-                    #if canImport(GoogleSignIn)
+                    #if FITBOSS_FIREBASE_ENABLED
                     _ = GIDSignIn.sharedInstance.handle(url)
                     #endif
                 }
