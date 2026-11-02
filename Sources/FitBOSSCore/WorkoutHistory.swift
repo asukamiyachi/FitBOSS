@@ -21,6 +21,33 @@ public enum WorkoutDay {
               self.key(for: date) == key else { return nil }
         return date
     }
+
+    /// All history labels follow the same JST day boundary as date keys,
+    /// even if the Mac uses another display time zone.
+    public static func monthTitle(for date: Date) -> String {
+        formatter("yyyy年M月").string(from: date)
+    }
+
+    public static func dateTitle(for date: Date) -> String {
+        formatter("yyyy年M月d日").string(from: date)
+    }
+
+    public static func timeTitle(for date: Date) -> String {
+        formatter("HH:mm").string(from: date)
+    }
+
+    public static func dateTimeTitle(for date: Date) -> String {
+        formatter("yyyy/MM/dd HH:mm").string(from: date)
+    }
+
+    private static func formatter(_ format: String) -> DateFormatter {
+        let f = DateFormatter()
+        f.calendar = calendar
+        f.timeZone = timeZone
+        f.locale = Locale(identifier: "ja_JP")
+        f.dateFormat = format
+        return f
+    }
 }
 
 public struct SavedWorkout: Codable, Identifiable, Equatable {

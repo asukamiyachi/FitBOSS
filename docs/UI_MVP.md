@@ -20,11 +20,12 @@ User approved UI scaffolding on 2026-11-02.
 ### Architecture and guardrails
 
 - \`ContentView.swift\` owns navigation, local-history dashboard, and read-only online placeholders.
-- \`WorkoutCameraView.swift\` owns experimental camera capture and the explicit save action. \`WorkoutHistoryStore\` persists completed workout summaries and rest days only to this Mac; \`WorkoutCalendarView\` renders and deletes these records.
+- \`WorkoutCameraView.swift\` owns experimental camera capture and the explicit save action. \`WorkoutHistoryStore\` uses \`WorkoutHistoryPersistence\` to atomically save workout summaries and rest days as JSON in Application Support/FitBOSS. Existing UserDefaults history migrates only after a successful file write; corrupted history and I/O errors block later writes. \`WorkoutCalendarView\` renders and deletes records.
 - No Firebase SDK, online connections, fake leaderboard/presence, hardcoded user records, analytics or outgoing camera data.
 - Never claim an online team/match exists until confirmed by an authenticated backend.
 - Do not equate client-computed repetition count with verified movement or clinical quality.
 - Streaks must be rest-day-aware; badges and leaderboards must not reward unsafe escalation of training.
+- History date keys, calendar month/day headings, and workout date/time labels use Asia/Tokyo regardless of the system display time zone.
 - Future Firebase services should be injected behind an interface, replace unavailable UI controls with real actions only after auth, Rules, and room-capacity tests are complete.
 - Keep Google-only login as a *development* decision. Review App Store sign-in requirements before distribution.
 - Use native SwiftUI components and SF Symbols for easier visual redesign later.
@@ -40,4 +41,5 @@ User approved UI scaffolding on 2026-11-02.
 7. Match and team panels describe online status accurately and don't imply workout/camera visibility.
 8. Resize the window to its minimum width; verify the home statistic cards reflow rather than shrinking into unreadable columns.
 9. Mark a past date as rest, confirm a workout date cannot also be marked rest; delete a saved session only after confirming the dialog. Verify stored summaries show the numeric count rather than a literal interpolation placeholder.
-10. \`swift test\` and \`bash Scripts/build-app.sh\` pass on a macOS runner. Hardware camera / permission tests remain manual.
+10. Verify local history still loads after upgrading from a UserDefaults-backed version; check error handling with corrupted history and blocked file writes. Verify date labels around JST midnight with the Mac set to another time zone.
+11. \`swift test\` and \`bash Scripts/build-app.sh\` pass on a macOS runner. Hardware camera / permission tests remain manual.

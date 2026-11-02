@@ -216,7 +216,7 @@ private struct HomeScreen: View {
                         HStack {
                             Text("腕立て伏せ \(workout.repetitions) 回")
                             Spacer()
-                            Text(workout.completedAt.formatted(date: .abbreviated, time: .shortened))
+                            Text(WorkoutDay.dateTimeTitle(for: workout.completedAt))
                                 .foregroundStyle(.secondary)
                         }
                     }
