@@ -26,6 +26,30 @@ jobs:
         run: swift test
       - name: Build camera prototype without distribution credentials
         run: bash Scripts/build-app.sh
+      - name: Verify offline rebuild purges stale Firebase artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=".build/FitBOSS.app"
+          mkdir -p "$APP/Contents/Resources/StaleFirebase.bundle"
+          printf 'synthetic test data only' > "$APP/Contents/Resources/GoogleService-Info.plist"
+          printf 'synthetic test data only' > "$APP/Contents/embedded.provisionprofile"
+          printf 'synthetic marker' > "$APP/Contents/Resources/StaleFirebase.bundle/sentinel"
+          /usr/bin/python3 - "$APP/Contents/Info.plist" <<'PY'
+          import plistlib, sys
+          with open(sys.argv[1], "rb") as source: info=plistlib.load(source)
+          info["CFBundleURLTypes"]=[{"CFBundleURLSchemes":["fake-firebase-oauth-scheme"]}]
+          with open(sys.argv[1], "wb") as target: plistlib.dump(info,target)
+          PY
+          bash Scripts/build-app.sh
+          test ! -e "$APP/Contents/Resources/GoogleService-Info.plist"
+          test ! -e "$APP/Contents/embedded.provisionprofile"
+          test ! -e "$APP/Contents/Resources/StaleFirebase.bundle"
+          /usr/bin/python3 - "$APP/Contents/Info.plist" <<'PY'
+          import plistlib, sys
+          with open(sys.argv[1], "rb") as source: info=plistlib.load(source)
+          assert not info.get("CFBundleURLTypes"), "Stale OAuth scheme retained in offline app"
+          PY
       - name: Generate drag-and-drop FitBOSS.dmg
         run: bash Scripts/create-dmg.sh
       - name: Verify mounted DMG contents
@@ -44,6 +68,8 @@ jobs:
           test -L "$MOUNT_POINT/Applications"
           test "$(readlink "$MOUNT_POINT/Applications")" = /Applications
           codesign --verify --deep --verbose=2 "$MOUNT_POINT/FitBOSS.app"
+          test ! -e "$MOUNT_POINT/FitBOSS.app/Contents/Resources/GoogleService-Info.plist"
+          test ! -e "$MOUNT_POINT/FitBOSS.app/Contents/embedded.provisionprofile"
       - name: Upload internal DMG test artifact (not a Release)
         uses: actions/upload-artifact@v4
         with:
