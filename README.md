@@ -65,3 +65,5 @@ Completed workout summaries and explicit rest days are stored as a JSON file und
 All captured video is processed locally, never saved or sent anywhere. The optional online build sends completed workout summaries and connection/progress values through authenticated APIs. Camera frames and landmarks remain on this Mac. The generated counts are experimental—not a validated assessment of correct form or health. Tracking may be inaccurate for occlusion, front-facing cameras, mirrored images, uneven lighting and very fast motion.
 
 See [Architecture](docs/ARCHITECTURE.md) and [Experiment plan](docs/EXPERIMENT_PLAN.md). The independent `FitBOSSCore` package is intentionally ready for future rep- and duration-based evaluators.
+
+For developers, see the [Japanese codebase reading guide](docs/CODEBASE_GUIDE.md) to locate navigation, feature screens, persistence, and Firebase service logic.
