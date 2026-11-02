@@ -192,6 +192,7 @@ struct BOSSBattleScreen: View {
                 }
             }
         }
+        .onChange(of: online.teamId) { _, _ in invitees.removeAll() }
     }
 
     private var phaseLabel: String {
