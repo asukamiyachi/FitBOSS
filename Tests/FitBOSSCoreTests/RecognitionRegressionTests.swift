@@ -2,6 +2,15 @@ import XCTest
 @testable import FitBOSSCore
 
 final class RecognitionRegressionTests: XCTestCase {
+    func testPermanentlyLostArmCanBeReacquiredWithoutCompletingOldRep() {
+        var evaluator = PushUpEvaluator()
+        for sample in RecognitionFixtures.samples([170,170,95,95]) { _ = evaluator.process(sample.frame) }
+        for (offset, angle) in [170.0,170,170,170,170,135,95,95,125,170,170].enumerated() {
+            let sample = RecognitionFixtures.Sample(time:0.4 + Double(offset)*0.1, angle:angle, rightArm:true)
+            _ = evaluator.process(sample.frame)
+        }
+        XCTAssertEqual(evaluator.process(RecognitionFixtures.Sample(time:1.5,angle:170,rightArm:true).frame).value,1)
+    }
     func testBriefTrackedArmLossRecoversWhenOtherArmIsVisible() {
         var evaluator = PushUpEvaluator()
         let angles = [170.0,170,135,100,95,95,95,95,125,165,170,170]

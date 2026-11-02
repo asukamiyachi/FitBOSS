@@ -115,7 +115,7 @@ macOS 27.2 / Apple M5 / arm64 / Xcode 27.2 (27B52) / Apple Swift 6.4.2、2026-11
 ## 自動検証とUI確認
 
 - 変更前：Swift **31件**、通常releaseアプリビルド成功。基準main CI [41392752952](https://github.com/asukamiyachi/FitBOSS/actions/runs/41392752952) も成功。
-- 変更後：Swift **52件**（Core45＋App7、既存31件を含む）、通常releaseアプリビルド、公式Firebase/Google SDK debugコンパイル成功。app署名のローカル検証成功。
+- 変更後：Swift **53件**（Core46＋App7、既存31件を含む）、通常releaseアプリビルド、公式Firebase/Google SDK debugコンパイル成功。app署名のローカル検証成功。
 - `bash -n Scripts/evaluate-recognition.sh`、actionlint 1.7.12（変更workflow）、`git diff --check` 成功。
 - 新たなCIステップは合成リプレイのみ。PR CIでSwift/通常ビルド、SDKコンパイル、内部DMG/署名/設定混入防止を検証する。リモートの最終HEAD・CI実行URL・結果はDraft PR本文を参照。バックエンド/Rulesを変更しないためEmulatorは変更判定に従ってskipとなる（実行成功ではない）。
 - 内蔵カメラの起動、人体未検出の理由表示、0回、停止の状態変化をAXテキストで確認。映像/画像を取得せず、運動動作や手動正解回数は評価していない。カメラを停止し検証アプリを終了。既存署名済みオンラインアプリとローカル設定を保持した。

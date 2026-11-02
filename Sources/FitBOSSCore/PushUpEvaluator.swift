@@ -95,7 +95,9 @@ public struct PushUpEvaluator: ExerciseEvaluator {
         lastTimestamp = frame.timestamp
         let selection = selectArm(in: frame)
         guard let sample = selection.sample else {
-            if selection.reason == .armChanged {
+            if selection.reason == .armChanged || (trackedArm != nil && lastValidTimestamp.map {
+                frame.timestamp - $0 > maximumTrackingInterruption + Self.timeEpsilon
+            } == true) {
                 interruptTracking()
                 lastTimestamp = frame.timestamp
                 diagnostic = .armChanged
