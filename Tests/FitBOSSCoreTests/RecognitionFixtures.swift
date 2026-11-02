@@ -11,6 +11,7 @@ enum RecognitionFixtures {
         var confidence: Double = 0.99
         var rightArm = false
         var missingWrist = false
+        var aspectRatio: Double = 1
 
         var frame: PoseFrame? {
             guard let angle else { return nil }
@@ -21,9 +22,16 @@ enum RecognitionFixtures {
             ]
             if !missingWrist {
                 joints[rightArm ? .rightWrist : .leftWrist] = Landmark(
-                    x: 0.5 + sin(radians) * 0.3, y: 0.5 + cos(radians) * 0.3, confidence: confidence)
+                    x: 0.5 + sin(radians) * 0.3 / aspectRatio,
+                    y: 0.5 + cos(radians) * 0.3, confidence: confidence)
             }
+            #if RECOGNITION_LEGACY_MODEL
+            // The baseline capture/evaluator had no aspect metadata. Give it
+            // the identical normalized points; only its old API is adapted.
             return PoseFrame(timestamp: time, joints: joints)
+            #else
+            return PoseFrame(timestamp: time, joints: joints, imageAspectRatio: aspectRatio)
+            #endif
         }
     }
 
@@ -49,6 +57,9 @@ enum RecognitionFixtures {
         return [
             Trial(name: "normal-left", samples: samples(normal), truth: [0.6]),
             Trial(name: "normal-right", samples: samples(normal, right: true), truth: [0.6]),
+            Trial(name: "twelve-fps-duration-boundary", samples: samples(normal, step: 1.0/12.0), truth: [0.5]),
+            Trial(name: "landscape-16x9", samples: samples(normal).map { Sample(time:$0.time,angle:$0.angle,aspectRatio:16.0/9.0) }, truth:[0.6]),
+            Trial(name: "portrait-3x4", samples: samples(normal).map { Sample(time:$0.time,angle:$0.angle,aspectRatio:3.0/4.0) }, truth:[0.6]),
             Trial(name: "slow", samples: samples(normal, step: 0.3), truth: [1.8]),
             Trial(name: "variable-cadence", samples: zip(variedTimes, normal).map { Sample(time: $0.0, angle: $0.1) }, truth: [0.70]),
             Trial(name: "two-reps", samples: samples([170,170,135,100,95,125,165,170,170,135,100,95,125,165,170,170]), truth: [0.6,1.3]),

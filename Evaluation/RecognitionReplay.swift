@@ -56,7 +56,7 @@ struct RecognitionReplay {
             }
         }
         let report: [String: Any] = [
-            "dataset": "hand-authored synthetic v1; no camera observations",
+            "dataset": "hand-authored synthetic v3 (26 trials); no camera observations",
             "trials": rows, "matching_window_seconds": tolerance,
             "mae": errors.reduce(0,+) / Double(errors.count),
             "bias": biases.reduce(0,+) / Double(biases.count),
