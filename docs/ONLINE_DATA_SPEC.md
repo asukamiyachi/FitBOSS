@@ -30,9 +30,11 @@
 
 - **Online** means the user's FitBOSS app is connected to Firebase and has registered presence; it does **not** mean they are exercising, visible on camera or available for a match.
 - Realtime Database `presence/{uid}/connections/{connectionId}` has one entry per active device/connection. Use `/.info/connected` and register `onDisconnectRemoveValue` **before** publishing online.
-- `presence/{uid}/lastSeenAt` is server timestamp of last disconnect, visible only to authorized teammates (privacy settings can disable this).
+- `presence/{uid}/lastOfflineAt` is a **trusted backend timestamp** written only on a transition from one or more active device connections to **zero**. Disconnecting one of several connected devices must not mark the member offline.
+- Display `オンライン` while at least one device is connected; otherwise show `オフライン（N分・N時間・N日前）` using `lastOfflineAt`. If unknown, display `最終接続時刻は不明` instead of guessing.
+- **No public/private online visibility toggle**, per the current decision. Access is exclusively for current invited teammates. Explain this clearly before team membership; removing membership must revoke visibility. Do not publish this information in public rankings.
 - A user is offline when no active connections remain; presence is eventually consistent and can be briefly stale after crashes/network loss.
-- RTDB access requires trusted team membership ACL replication or a server-mediated access path. **No broad authenticated-user reads**.
+- RTDB access requires trusted team membership ACL replication or a server-mediated access path. **No broad authenticated-user reads**. Multi-device lastOfflineAt transitions must be evaluated by trusted server logic; each client's `onDisconnect` alone is insufficient to determine last-device disconnect.
 
 ## Permanent data proposal (Firestore)
 
@@ -58,7 +60,7 @@ Unique team membership rules must be decided before deploy. `dateKey` uses the e
 
 ```txt
 presence/{uid}/connections/{connectionId}
-presence/{uid}/lastSeenAt
+presence/{uid}/lastOfflineAt
 rooms/{roomId}/metadata
   hostUid, teamId?, exerciseId, metricType, phase, capacity: 6, createdAt
 rooms/{roomId}/participants/{uid}
@@ -76,8 +78,11 @@ Never allow a user to set another person's `uid`, arbitrarily join rooms, increa
 - `value` is the exercise's native metric (repetitions or hold seconds). No combined unit-free score initially.
 - Avoid claiming 2D elbow angle is physiological **intensity**; if desired later, separate `difficultyTier` (chosen exercise variant) and `movementQuality` (experimentally estimated). Labels should never imply medical-grade certainty.
 - Match people within the same exercise/conditions, and avoid unsafe escalation of difficulty or volume to win.
+- **Rematch:** a finished room may propose a fresh room ID with the same exercise/rules and former invitee list, at most six people. No automatic rejoin, reuse of scores or old access grants. The backend must revalidate active membership, identity and capacity, and each invitee must accept.
+- Team rankings use **weekly/monthly unique workout participation days** per member, counting no more than one exercise day per date and never subtracting for rest days. Do not sort by unlimited repetitions or clinical intensity.
+- Local workout calendar records completed push-up sessions and explicit rest days in `Asia/Tokyo`. Up to two consecutive recorded rest days can bridge an exercise-day streak without adding extra exercise days.
 - Team progress uses opted-in goals, **bounded** achievement and participation rather than encouraging unlimited repetitions. Rest days should not lower an individual's ranking.
-- Team data remains private to invited members; allow non-discoverable profiles and hiding online status.
+- Team data remains private to invited members and profiles are not publicly discoverable. Under the current no-toggle decision, online status is visible only to authorized teammates, with disclosure before joining and immediate access revocation on leaving.
 
 ## Contracts for later integration
 
@@ -97,8 +102,14 @@ Backend session finalization is deferred until the client SDK, authentication, a
 
 - Solo: end session offline, reboot, reconnect, upload exactly once; do not double-count retries.
 - Solo: finish just before/after midnight JST, verify the correct daily bucket.
-- Presence: two devices per user, close one then both; crash and reconnect; hidden-presence preference.
+- Presence: two devices per user, close one and confirm still online; close final connection and confirm trusted lastOfflineAt; crash/reconnect, unknown timestamp, cross-team authorization.
 - Rooms: sixth join succeeds, seventh denied; concurrent joins cannot overfill capacity.
 - Security: cross-team read rejected; unauthenticated request rejected; forged uid and room score changes rejected.
 - Live: six participants, ≤1 update/second/user, temporary disconnect, resume, authoritative finish.
 - Privacy: no raw camera frames or pose landmarks leave macOS.
+
+## User-approved UI follow-up (2026-11-02)
+
+- Local history calendar, workout completion and rest-day persistence are implemented in the UI PR branch (not in `main` until merged). No Firebase sync yet.
+- Team ranking (week/month), rematch, and offline-elapsed status are **UI/architecture placeholders**, not network-connected operations. Never display fake users or rankings.
+- Do not add an online presence visibility toggle. A user must be informed that teammates can see connection status and elapsed time since going offline before joining a team; leaving must revoke access. Presence does not show their location, camera, or exercise activity.
