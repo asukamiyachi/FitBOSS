@@ -87,11 +87,24 @@ struct ContentView: View {
             }
         }
         .onChange(of: online.teamId) { _ in uploadPendingWorkouts() }
-        .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
-            if online.signedIn && online.teamId != nil {
+        .onChange(of: selection) { _, page in
+            if OnlineRequestPolicies.shouldRefreshTeam(
+                appIsActive: NSApp.isActive, teamScreenVisible: page == .team,
+                signedIn: online.signedIn, hasTeam: online.teamId != nil
+            ) {
                 online.loadTeam()
-                uploadPendingWorkouts()
             }
+        }
+        .onReceive(Timer.publish(every: OnlineRequestPolicies.teamRefreshInterval, on: .main, in: .common).autoconnect()) { _ in
+            guard NSApp.isActive, online.signedIn, online.teamId != nil else { return }
+            if OnlineRequestPolicies.shouldRefreshTeam(
+                appIsActive: true, teamScreenVisible: selection == .team,
+                signedIn: online.signedIn, hasTeam: true
+            ) {
+                online.loadTeam()
+            }
+            // Retry only previously queued uploads. No periodic team reads on unrelated screens.
+            uploadPendingWorkouts()
         }
     }
 
