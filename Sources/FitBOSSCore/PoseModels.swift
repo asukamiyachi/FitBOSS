@@ -23,10 +23,14 @@ public struct PoseFrame: Sendable {
     /// Monotonic time, e.g. ProcessInfo.processInfo.systemUptime.
     public let timestamp: TimeInterval
     public let joints: [BodyJoint: Landmark]
+    /// Image width / height. Restore isotropic units for angle calculation;
+    /// the original normalized joints remain unchanged for preview overlays.
+    public let imageAspectRatio: Double
 
-    public init(timestamp: TimeInterval, joints: [BodyJoint: Landmark]) {
+    public init(timestamp: TimeInterval, joints: [BodyJoint: Landmark], imageAspectRatio: Double = 1) {
         self.timestamp = timestamp
         self.joints = joints
+        self.imageAspectRatio = imageAspectRatio
     }
 
     public subscript(_ joint: BodyJoint) -> Landmark? { joints[joint] }
