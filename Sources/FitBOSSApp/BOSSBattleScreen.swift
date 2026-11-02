@@ -1,4 +1,5 @@
 import AppKit
+import FitBOSSCore
 import SwiftUI
 
 /// Shows only real room state returned by OnlineService; no fabricated opponents or scores.
