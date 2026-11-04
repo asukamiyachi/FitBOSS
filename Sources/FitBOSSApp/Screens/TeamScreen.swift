@@ -10,6 +10,15 @@ struct TeamScreen: View {
 
     var body: some View {
         ScreenLayout(title: "チーム", subtitle: "招待制のチーム。接続状態とオフライン経過時間をメンバー間で共有します。") {
+            if !online.configured {
+                BOSSInlineNotice(message: "このビルドではオンライン機能を利用できません。ローカル練習は利用できます。", symbol: "wifi.slash", tint: BOSSTheme.warning)
+            } else if !online.signedIn {
+                BOSSInlineNotice(message: "チームの作成・参加には、アカウント画面からGoogleログインが必要です。", symbol: "person.crop.circle", tint: BOSSTheme.warning)
+            }
+            if online.isWorking { ProgressView("処理中…") }
+            if let error = online.errorMessage {
+                BOSSInlineNotice(message: error, symbol: "exclamationmark.triangle.fill", tint: BOSSTheme.error)
+            }
             InformationPanel(title: "チームを作成・参加", icon: "person.badge.plus") {
                 Text("参加中はチームメンバーに「オンライン」または最後にオフラインになった時刻からの経過時間が見えます。公開・非公開切り替えはありません。チームを抜けると相互のアクセスが無効になります。")
                     .font(.caption).foregroundStyle(.secondary)
@@ -44,7 +53,7 @@ struct TeamScreen: View {
                         Spacer()
                         TimelineView(.periodic(from: .now, by: 60)) { timeline in
                             Text(member.label(asOf: timeline.date))
-                                .foregroundStyle(member.online ? Color.green : Color.secondary)
+                                .foregroundStyle(member.online ? BOSSTheme.mint : BOSSTheme.muted)
                         }
                     }
                 }

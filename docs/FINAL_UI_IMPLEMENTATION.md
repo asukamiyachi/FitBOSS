@@ -54,3 +54,12 @@ PR #12 (`cc43fe5`) はDraft・未マージ。独立したmainベースのUI変�
 - PR #12のCI `41465336565` はSwift/ビルド成功、SDKジョブはrunner未取得（macOS arm64容量不足）でキャンセル。UIとは独立した既存の制約。
 
 mainへのマージ、デプロイ、料金変更、正式Releaseは行わない。
+
+## 継続検証（2026-11-04）
+
+- `0b3b32e` の [macOS CI](https://github.com/asukamiyachi/FitBOSS/actions/runs/41476969507) は初回runner未取得でキャンセル。失敗ジョブのみ再実行し、Swift tests/app build・Firebase SDK compile・backend contractが成功。Rules/Functions統合は変更範囲外でSKIPPED。
+- 同SHAの [内部DMG CI](https://github.com/asukamiyachi/FitBOSS/actions/runs/41476969508) は成功。
+- 実アプリでSidebar非表示→表示時のHome維持、履歴の空状態、未認証Team、構想のAchievements、Accountのローカル利用導線、System設定の表示を追加確認。
+- P2表示問題を修正: Teamにオンライン利用不可/ログイン条件/処理中/エラーを追加。Achievementsの「未獲得」を「準備中」にし、実績判定が未実装であることを冒頭に明示。変更後の両画面をAXで再確認。
+- この追加修正でもSwift 59件、offline app build、Firebase SDK有効debug compileが成功。新しいHEADのCIは別途PRチェックを参照（上記成功は`0b3b32e`に対する結果）。
+- ローカル作業は`feat/final-native-ui`で継続し、区切りごとにDraft PR #13へ保存。クレジット残量の取得手段はないため、残量に依存した保存を行わない。
