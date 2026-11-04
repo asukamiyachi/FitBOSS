@@ -111,7 +111,7 @@ struct WorkoutCameraView: View {
                     BOSSPill(
                         text: camera.isRunning ? "計測中" : camera.isStarting ? "カメラ起動中" : "停止中",
                         symbol: camera.isRunning ? "circle.fill" : "video.slash",
-                        tint: camera.isRunning ? BOSSTheme.mint : .orange
+                        tint: camera.isRunning ? BOSSTheme.mint : BOSSTheme.warning
                     )
                     Spacer(minLength: 8)
                     Text(phaseText)
@@ -280,7 +280,7 @@ struct WorkoutCameraView: View {
             Image(systemName: "checkmark.circle.fill")
         }
         .font(.subheadline.weight(.semibold))
-        .foregroundStyle(.white)
+        .foregroundStyle(BOSSTheme.primary)
         .padding(12)
         .background(BOSSTheme.violet.opacity(0.25), in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(BOSSTheme.violet))
@@ -295,7 +295,7 @@ struct WorkoutCameraView: View {
         .font(.subheadline)
         .foregroundStyle(BOSSTheme.muted)
         .padding(12)
-        .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12))
+        .background(BOSSTheme.surface, in: RoundedRectangle(cornerRadius: 12))
         .accessibilityElement(children: .combine)
     }
 

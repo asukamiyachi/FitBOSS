@@ -63,3 +63,12 @@ mainへのマージ、デプロイ、料金変更、正式Releaseは行わない
 - P2表示問題を修正: Teamにオンライン利用不可/ログイン条件/処理中/エラーを追加。Achievementsの「未獲得」を「準備中」にし、実績判定が未実装であることを冒頭に明示。変更後の両画面をAXで再確認。
 - この追加修正でもSwift 59件、offline app build、Firebase SDK有効debug compileが成功。新しいHEADのCIは別途PRチェックを参照（上記成功は`0b3b32e`に対する結果）。
 - ローカル作業は`feat/final-native-ui`で継続し、区切りごとにDraft PR #13へ保存。クレジット残量の取得手段はないため、残量に依存した保存を行わない。
+
+## PRレビュー（2026-11-04）
+
+- 最新HEADの全変更範囲、レビューコメント、CI、mainの保護/rulesを確認。既存レビューコメントなし。mainへの必須レビュー・保護ルールなし。
+- P2: `WorkoutCameraView.swift` の選択中種目が固定白文字のためLightで低コントラスト。カメラ起動/停止バッジも固定orangeが白surface上で読みにくい。primary/warning semantic色へ修正。準備中種目の背景もsurfaceへ統一。
+- 修正後Swift 59件、offline release build/署名検証、Firebase SDK debug compileが成功。配色は既存の両テーマcontrastテスト対象tokenを使用。
+- 再レビュー: Core/CameraManager/OnlineService/保存・認可・バックエンド・配布構成に差分なし。新規P0/P1および残存する既知のコード上のマージ阻害問題はなし。
+- 既述のP2手動受入項目は未検証の制約として継続する。これは不具合を実証した項目ではない。今回のコード統合と最終UIの全項目受入は別の判定であり、カメラ起動・VoiceOver等が動作確認済みであるとは主張しない。
+- ユーザーがレビュー/修正ループ後のマージを明示承認。修正HEADのCI成功と競合なしを再確認してから統合する。
