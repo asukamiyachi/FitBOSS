@@ -40,9 +40,9 @@ struct WorkoutCalendarView: View {
 
                 HStack(spacing: 12) {
                     Label("運動した日", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(BOSSTheme.mint)
                     Label("休息日", systemImage: "moon.stars.fill")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(BOSSTheme.warning)
                     Spacer()
                 }
                 .font(.caption)
@@ -78,7 +78,7 @@ struct WorkoutCalendarView: View {
                     }
                 }
                 .padding(22)
-                .background(Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
+                .background(BOSSTheme.surface, in: RoundedRectangle(cornerRadius: 16))
 
                 VStack(alignment: .leading, spacing: 12) {
                     Text(WorkoutDay.dateTitle(for: selectedDay))
@@ -116,17 +116,19 @@ struct WorkoutCalendarView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(20)
-                .background(Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
+                .background(BOSSTheme.surface, in: RoundedRectangle(cornerRadius: 16))
 
                 if let error = store.storageError {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
+                        .foregroundStyle(BOSSTheme.error)
                 }
             }
             .frame(maxWidth: 900, alignment: .leading)
             .padding(28)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
+        .background(BOSSTheme.canvas)
+        .foregroundStyle(BOSSTheme.primary)
         .navigationTitle("履歴カレンダー")
         .confirmationDialog("この運動記録を削除しますか？", isPresented: $showDeleteConfirmation) {
             Button("削除する", role: .destructive) {
@@ -152,9 +154,9 @@ struct WorkoutCalendarView: View {
                 Text("\(dayNumber)")
                     .font(.system(.body, design: .rounded, weight: isSelected ? .bold : .regular))
                 if hasWorkout {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(BOSSTheme.mint)
                 } else if isRest {
-                    Image(systemName: "moon.stars.fill").foregroundStyle(.orange)
+                    Image(systemName: "moon.stars.fill").foregroundStyle(BOSSTheme.warning)
                 } else {
                     Image(systemName: "circle.fill").opacity(0)
                 }

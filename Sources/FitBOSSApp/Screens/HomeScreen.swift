@@ -18,34 +18,22 @@ struct BOSSHomeScreen: View {
         BOSSPage(title: "ホーム", subtitle: "今日も自分のペースで。カメラで運動を記録しよう。") {
             hero
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 175), spacing: 14)], spacing: 14) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 3), spacing: 14) {
                 BOSSStatCard(
                     title: "継続記録",
                     value: historyStore.history.sessions.isEmpty ? "—" : "\(historyStore.history.currentWorkoutStreak())日",
                     detail: "休息日を大切にする運動日数",
                     symbol: "flame.fill",
-                    accent: .orange
+                    accent: BOSSTheme.warning
                 )
                 BOSSStatCard(
-                    title: "対戦記録",
-                    value: "—",
-                    detail: "オンライン対戦の記録は準備中",
-                    symbol: "bolt.shield.fill",
-                    accent: BOSSTheme.blue
+                    title: "保存した腕立て伏せ", value: "\(historyStore.history.sessions.reduce(0) { $0 + $1.repetitions })回",
+                    detail: "このMacの保存済み記録の合計", symbol: "figure.strengthtraining.traditional", accent: BOSSTheme.blue
                 )
                 BOSSStatCard(
-                    title: "チーム",
-                    value: online.teamId == nil ? "未参加" : "選択中",
-                    detail: online.signedIn ? "参加状況はチーム画面で確認" : "Googleログイン後に利用",
-                    symbol: "person.3.fill",
-                    accent: BOSSTheme.violet
-                )
-                BOSSStatCard(
-                    title: "獲得バッジ",
-                    value: "—",
-                    detail: "バッジ判定機能は準備中",
-                    symbol: "star.fill",
-                    accent: .yellow
+                    title: "最近の運動", value: latestSessions.first.map { "\($0.repetitions)回" } ?? "未記録",
+                    detail: latestSessions.first.map { WorkoutDay.dateTimeTitle(for: $0.completedAt) } ?? "自分のペースで始めましょう",
+                    symbol: "clock", accent: BOSSTheme.violet
                 )
             }
 
@@ -82,7 +70,7 @@ struct BOSSHomeScreen: View {
                             }
                             .accessibilityElement(children: .combine)
                             if workout.id != latestSessions.last?.id {
-                                Divider().overlay(.white.opacity(0.12))
+                                Divider().overlay(BOSSTheme.border)
                             }
                         }
                     }
@@ -104,7 +92,7 @@ struct BOSSHomeScreen: View {
                     } icon: {
                         Image(systemName: "checkmark.shield.fill").foregroundStyle(BOSSTheme.mint)
                     }
-                    Divider().overlay(.white.opacity(0.12))
+                    Divider().overlay(BOSSTheme.border)
                     Label {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(online.signedIn && online.teamId != nil ? "完了記録はオンライン送信の対象" : "オンライン機能は任意")
@@ -125,9 +113,11 @@ struct BOSSHomeScreen: View {
                 }
             }
 
+            Text("準備中：バッジ・公式ランキング。実績や勝敗はまだ表示しません。")
+                .font(.caption).foregroundStyle(BOSSTheme.muted)
             if let error = historyStore.storageError {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(BOSSTheme.warning)
                     .padding(12)
                     .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
             }
@@ -136,29 +126,15 @@ struct BOSSHomeScreen: View {
 
     private var hero: some View {
         ZStack(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 23)
-                .fill(LinearGradient(
-                    colors: [
-                        Color(red: 0.10, green: 0.20, blue: 0.42),
-                        Color(red: 0.13, green: 0.09, blue: 0.34),
-                        Color(red: 0.29, green: 0.11, blue: 0.43)
-                    ],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
-                ))
-            Image(systemName: "figure.strengthtraining.traditional")
-                .font(.system(size: 172, weight: .ultraLight))
-                .foregroundStyle(.white.opacity(0.13))
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .padding(.trailing, 30)
-                .accessibilityHidden(true)
+            RoundedRectangle(cornerRadius: 23).fill(BOSSTheme.elevated)
             VStack(alignment: .leading, spacing: 16) {
                 BOSSPill(text: "CAMERA TRAINING", symbol: "camera.fill", tint: BOSSTheme.mint)
                 Text("腕立て伏せを計測")
                     .font(.system(size: 28, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(BOSSTheme.primary)
                 Text("Apple Visionで動きを検出。無理のないペースで回数を記録できます。")
                     .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.82))
+                    .foregroundStyle(BOSSTheme.muted)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: 520, alignment: .leading)
 
@@ -173,7 +149,7 @@ struct BOSSHomeScreen: View {
         }
         .fixedSize(horizontal: false, vertical: true)
         .overlay(RoundedRectangle(cornerRadius: 23).strokeBorder(BOSSTheme.blue.opacity(0.55)))
-        .shadow(color: BOSSTheme.blue.opacity(0.17), radius: 21, y: 8)
+
     }
 
     @ViewBuilder

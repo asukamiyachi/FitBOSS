@@ -21,6 +21,7 @@ struct AchievementsScreen: View {
             title: "バッジ・実績",
             subtitle: "努力の積み重ねを可視化します。過度な運動を競う設計にはしません。"
         ) {
+            BOSSInlineNotice(message: "バッジ機能は準備中です。以下は構想であり、現在の達成状況を示しません。", symbol: "clock")
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 14)], spacing: 14) {
                 ForEach(badges) { badge in
                     VStack(alignment: .leading, spacing: 12) {
@@ -32,13 +33,13 @@ struct AchievementsScreen: View {
                         Text(badge.description)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
-                        Label("未獲得", systemImage: "lock.fill")
+                        Label("準備中", systemImage: "clock")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, minHeight: 144, alignment: .topLeading)
                     .padding(20)
-                    .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+                    .background(BOSSTheme.surface, in: RoundedRectangle(cornerRadius: 16))
                 }
             }
             Text("バッジの判定・保存は今後実装します。現段階で実際に獲得できるバッジはありません。")

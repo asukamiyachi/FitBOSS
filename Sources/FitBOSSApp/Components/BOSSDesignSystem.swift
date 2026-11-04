@@ -2,15 +2,19 @@ import SwiftUI
 
 /// Shared presentation-only styling. No network calls, exercise logic, or persisted state.
 enum BOSSTheme {
-    static let canvas = Color(red: 0.035, green: 0.052, blue: 0.105)
-    static let surface = Color(red: 0.085, green: 0.105, blue: 0.190)
-    static let blue = Color(red: 0.16, green: 0.73, blue: 1.00)
-    static let violet = Color(red: 0.68, green: 0.30, blue: 1.00)
-    static let mint = Color(red: 0.32, green: 0.91, blue: 0.70)
-    static let muted = Color(red: 0.70, green: 0.75, blue: 0.86)
-
+    static let canvas = BOSSPalette.color(.canvas)
+    static let surface = BOSSPalette.color(.surface)
+    static let elevated = BOSSPalette.color(.elevated)
+    static let primary = BOSSPalette.color(.primary)
+    static let border = BOSSPalette.color(.border)
+    static let blue = BOSSPalette.color(.cyan)
+    static let violet = BOSSPalette.color(.violet)
+    static let mint = BOSSPalette.color(.success)
+    static let warning = BOSSPalette.color(.warning)
+    static let error = BOSSPalette.color(.error)
+    static let muted = BOSSPalette.color(.secondary)
     static let action = LinearGradient(
-        colors: [blue, Color(red: 0.31, green: 0.39, blue: 0.98), violet],
+        colors: [BOSSPalette.color(.actionStart), BOSSPalette.color(.actionEnd)],
         startPoint: .leading, endPoint: .trailing
     )
 }
@@ -30,17 +34,7 @@ enum BOSSLayoutPolicy {
 
 private struct BOSSBackground: View {
     var body: some View {
-        ZStack {
-            BOSSTheme.canvas
-            RadialGradient(
-                colors: [BOSSTheme.violet.opacity(0.28), .clear],
-                center: .topTrailing, startRadius: 25, endRadius: 610
-            )
-            RadialGradient(
-                colors: [BOSSTheme.blue.opacity(0.16), .clear],
-                center: .bottomLeading, startRadius: 0, endRadius: 510
-            )
-        }
+        BOSSTheme.canvas
         .ignoresSafeArea()
     }
 }
@@ -74,15 +68,15 @@ struct BOSSPage<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .top)
         }
         .background(BOSSBackground())
-        .preferredColorScheme(.dark)
+        .foregroundStyle(BOSSTheme.primary)
         .navigationTitle(title)
     }
 
     private var heading: some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(title)
-                .font(.system(size: 34, weight: .heavy, design: .rounded))
-                .foregroundStyle(.white)
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundStyle(BOSSTheme.primary)
                 .accessibilityAddTraits(.isHeader)
             Text(subtitle)
                 .font(.subheadline)
@@ -102,7 +96,7 @@ struct BOSSPanel<Content: View>: View {
             if let title {
                 Label(title, systemImage: symbol)
                     .font(.headline.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(BOSSTheme.primary)
             }
             content
         }
@@ -110,14 +104,11 @@ struct BOSSPanel<Content: View>: View {
         .padding(19)
         .background {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(BOSSTheme.surface.opacity(0.87))
+                .fill(BOSSTheme.surface)
                 .overlay {
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
                         .strokeBorder(
-                            LinearGradient(
-                                colors: [.white.opacity(0.20), BOSSTheme.violet.opacity(0.30)],
-                                startPoint: .topLeading, endPoint: .bottomTrailing
-                            ),
+                            BOSSTheme.border,
                             lineWidth: 1
                         )
                 }
@@ -136,13 +127,15 @@ struct BOSSPill: View {
             .foregroundStyle(tint)
             .padding(.horizontal, 11)
             .padding(.vertical, 7)
-            .background(tint.opacity(0.13), in: Capsule())
-            .overlay(Capsule().strokeBorder(tint.opacity(0.38), lineWidth: 1))
+            .background(BOSSTheme.surface, in: Capsule())
+            .overlay(Capsule().strokeBorder(tint, lineWidth: 1))
     }
 }
 
 struct BOSSPrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.isFocused) private var isFocused
+    @State private var hovering = false
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline.weight(.bold))
@@ -150,23 +143,28 @@ struct BOSSPrimaryButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.horizontal, 14)
             .background(BOSSTheme.action, in: RoundedRectangle(cornerRadius: 13))
-            .opacity(isEnabled ? (configuration.isPressed ? 0.78 : 1) : 0.42)
-            .shadow(color: BOSSTheme.violet.opacity(0.22), radius: 12, y: 4)
+            .overlay(RoundedRectangle(cornerRadius: 13).fill(.black.opacity(configuration.isPressed ? 0.15 : 0)).allowsHitTesting(false))
+            .saturation(isEnabled ? 1 : 0)
+            .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(isFocused ? BOSSTheme.blue : BOSSTheme.border, lineWidth: isFocused ? 3 : hovering && isEnabled ? 2 : 1))
+            .onHover { hovering = $0 }
     }
 }
 
 struct BOSSSecondaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.isFocused) private var isFocused
+    @State private var hovering = false
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.subheadline.weight(.semibold))
-            .foregroundStyle(.white)
+            .foregroundStyle(isEnabled ? BOSSTheme.primary : BOSSTheme.muted)
             .frame(maxWidth: .infinity, minHeight: 40)
             .padding(.horizontal, 11)
-            .background(.white.opacity(configuration.isPressed ? 0.22 : 0.09),
+            .background(configuration.isPressed ? BOSSTheme.elevated : BOSSTheme.surface,
                         in: RoundedRectangle(cornerRadius: 12))
-            .opacity(isEnabled ? 1 : 0.42)
-            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.white.opacity(0.17)))
+            .foregroundStyle(isEnabled ? BOSSTheme.primary : BOSSTheme.muted)
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(isFocused ? BOSSTheme.blue : BOSSTheme.border, lineWidth: isFocused ? 3 : hovering && isEnabled ? 2 : 1))
+            .onHover { hovering = $0 }
     }
 }
 
@@ -185,7 +183,7 @@ struct BOSSStatCard: View {
             Text(value)
                 .font(.system(size: 30, weight: .bold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(.white)
+                .foregroundStyle(BOSSTheme.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(detail)
@@ -198,9 +196,9 @@ struct BOSSStatCard: View {
         .padding(17)
         .background {
             RoundedRectangle(cornerRadius: 17)
-                .fill(accent.opacity(0.08))
+                .fill(BOSSTheme.surface)
                 .overlay(RoundedRectangle(cornerRadius: 17)
-                    .strokeBorder(accent.opacity(0.46), lineWidth: 1))
+                    .strokeBorder(BOSSTheme.border, lineWidth: 1))
         }
         .accessibilityElement(children: .combine)
     }

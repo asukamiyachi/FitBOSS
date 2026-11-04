@@ -24,7 +24,7 @@ struct SignInScreen: View {
                 Divider()
                 if online.signedIn {
                     Label("Googleログイン済み", systemImage: "checkmark.circle.fill")
-                        .font(.headline).foregroundStyle(.green)
+                        .font(.headline).foregroundStyle(BOSSTheme.mint)
                     if let name = online.displayName, !name.isEmpty { Text(name).font(.title2.weight(.semibold)) }
                     if let email = online.accountEmail { Text(email).font(.callout).textSelection(.enabled) }
                     LabeledContent("Realtime Database", value: online.databaseStatus)
@@ -92,6 +92,8 @@ struct SignInScreen: View {
             .padding(36)
             .frame(maxWidth: .infinity, alignment: .center)
         }
+        .background(BOSSTheme.canvas)
+        .foregroundStyle(BOSSTheme.primary)
         .navigationTitle(online.signedIn ? "アカウント" : "ログイン")
     }
 }

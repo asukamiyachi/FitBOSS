@@ -5,6 +5,13 @@ import SwiftUI
 /// Shows only real room state returned by OnlineService; no fabricated opponents or scores.
 struct BOSSBattleScreen: View {
     @ObservedObject var online: OnlineService
+    let openAccount: () -> Void
+    let openTeam: () -> Void
+    let startWorkout: () -> Void
+
+    private var availability: BOSSPresentation.BattleAvailability {
+        BOSSPresentation.battleAvailability(configured: online.configured, signedIn: online.signedIn, hasTeam: online.teamId != nil)
+    }
     @State private var roomCode = ""
     @State private var invitees: Set<String> = []
 
@@ -22,19 +29,21 @@ struct BOSSBattleScreen: View {
         BOSSPage(title: "対戦", subtitle: "仲間と記録を共有する、招待制ルーム。最大6人まで。") {
             entryPanel
 
-            if !online.configured {
-                Label("このビルドではオンライン機能を利用できません。ローカル練習は使えます。", systemImage: "wifi.slash")
-                    .font(.subheadline)
-                    .foregroundStyle(.orange)
-            } else if !online.signedIn {
-                Label("対戦にはGoogleログインが必要です。", systemImage: "person.crop.circle")
-                    .font(.subheadline)
-                    .foregroundStyle(.orange)
-            } else if online.teamId == nil {
-                Label("対戦にはチームへの参加が必要です。", systemImage: "person.3")
-                    .font(.subheadline)
-                    .foregroundStyle(.orange)
+            if let error = online.errorMessage {
+                BOSSInlineNotice(message: error, symbol: "exclamationmark.triangle.fill", tint: BOSSTheme.error)
             }
+            if availability != .ready {
+                BOSSInlineNotice(message: availability.message, symbol: "lock.fill", tint: BOSSTheme.warning)
+                Button(availability.actionTitle) {
+                    switch availability {
+                    case .offline: startWorkout()
+                    case .signedOut: openAccount()
+                    case .noTeam: openTeam()
+                    case .ready: break
+                    }
+                }.buttonStyle(BOSSSecondaryButtonStyle())
+            }
+            if online.isWorking { ProgressView("処理中…").accessibilityLabel("オンライン操作を処理中") }
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 310), spacing: 16)], spacing: 16) {
                 if online.roomId == nil {
@@ -80,7 +89,7 @@ struct BOSSBattleScreen: View {
                     .foregroundStyle(BOSSTheme.muted)
                 Text(roomId)
                     .font(.caption.monospaced())
-                    .foregroundStyle(.white)
+                    .foregroundStyle(BOSSTheme.primary)
                     .textSelection(.enabled)
                     .lineLimit(2)
                 if let inviteCode = online.roomInviteCode {
@@ -113,7 +122,7 @@ struct BOSSBattleScreen: View {
                                         .font(.headline.monospacedDigit())
                                 }
                                 GeometryReader { proxy in
-                                    Capsule().fill(.white.opacity(0.10))
+                                    Capsule().fill(BOSSTheme.elevated)
                                         .overlay(alignment: .leading) {
                                             Capsule()
                                                 .fill(BOSSTheme.action)
@@ -172,8 +181,10 @@ struct BOSSBattleScreen: View {
             }
             .buttonStyle(BOSSPrimaryButtonStyle())
             .disabled(!isReady)
+            .accessibilityHint(availability == .ready ? "同じチームのメンバーを招待します" : availability.message)
 
-            Divider().overlay(.white.opacity(0.14))
+            Divider().overlay(BOSSTheme.border)
+            Text("招待コード").font(.caption.weight(.semibold))
             TextField("招待コードを入力", text: $roomCode)
                 .textFieldStyle(.roundedBorder)
                 .disabled(!isReady)
@@ -220,19 +231,19 @@ struct BOSSBattleScreen: View {
         BOSSPanel(title: "オンライン機能について", symbol: "lock.shield") {
             statusRow("Googleログイン", symbol: "person.crop.circle",
                       description: online.signedIn ? "認証済み" : "ログインが必要です。")
-            Divider().overlay(.white.opacity(0.14))
+            Divider().overlay(BOSSTheme.border)
             statusRow("チーム参加", symbol: "person.3",
                       description: online.teamId != nil ? "チーム選択中" : "先にチームに参加してください。")
-            Divider().overlay(.white.opacity(0.14))
+            Divider().overlay(BOSSTheme.border)
             statusRow("共有する情報", symbol: "chart.bar",
                       description: "回数などの暫定進捗。映像や関節座標は送信しません。")
-            Divider().overlay(.white.opacity(0.14))
+            Divider().overlay(BOSSTheme.border)
             statusRow("サーバーの状態", symbol: "server.rack",
-                      description: "対戦用Cloud Functionsは未デプロイです。現在は開発用UIです。")
+                      description: "SDKの設定だけではサーバー稼働を確認できません。操作の応答をご確認ください。")
             if let message = online.errorMessage {
                 Label(message, systemImage: "exclamationmark.triangle")
                     .font(.caption)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(BOSSTheme.warning)
             }
         }
     }
@@ -263,14 +274,14 @@ struct BOSSBattleScreen: View {
                     HStack(spacing: 8) {
                         BOSSPill(text: online.signedIn ? "Google認証済み" : "要ログイン",
                                  symbol: online.signedIn ? "checkmark.circle.fill" : "lock",
-                                 tint: online.signedIn ? BOSSTheme.mint : .orange)
+                                 tint: online.signedIn ? BOSSTheme.mint : BOSSTheme.warning)
                         BOSSPill(text: online.teamId != nil ? "チーム選択中" : "未参加",
                                  symbol: "person.3.fill", tint: BOSSTheme.violet)
                     }
                 }
                 Spacer(minLength: 0)
             }
-            Text("β開発中：Cloud Functionsは未デプロイのため、作成・参加操作は現在の実環境では利用できません。")
+            Text("β開発中：招待制ルームのみ対応。接続状態は操作の応答で確認します。自動マッチング・公式順位は準備中です。")
                 .font(.caption)
                 .foregroundStyle(BOSSTheme.muted)
         }

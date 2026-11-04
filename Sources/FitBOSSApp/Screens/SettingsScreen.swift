@@ -2,12 +2,20 @@ import SwiftUI
 
 // Settings: current auth status and user-facing privacy disclosures.
 struct SettingsScreen: View {
+    @AppStorage("fitboss.appearance") private var appearanceRawValue = BOSSAppearance.system.rawValue
     @ObservedObject var online: OnlineService
     var body: some View {
         ScreenLayout(title: "設定", subtitle: "認証とプライバシー") {
+            InformationPanel(title: "外観", icon: "circle.lefthalf.filled") {
+                Picker("表示モード", selection: $appearanceRawValue) {
+                    ForEach(BOSSAppearance.allCases) { Text($0.title).tag($0.rawValue) }
+                }
+                Text("SystemはMacの外観に追従します。設定はこのMacに保存され、すべてのウィンドウに反映されます。")
+                    .font(.caption).foregroundStyle(BOSSTheme.muted)
+            }
             InformationPanel(title: "Googleアカウント", icon: "person.crop.circle") {
                 if online.signedIn {
-                    Text("Googleで認証済み").foregroundStyle(.green)
+                    Text("Googleで認証済み").foregroundStyle(BOSSTheme.mint)
                     if let uid = online.uid { Text("UID：\(uid)").textSelection(.enabled) }
                     Button("ログアウト") { online.signOut() }
                         .disabled(online.isWorking)
@@ -20,7 +28,7 @@ struct SettingsScreen: View {
                 }
                 if let error = online.errorMessage {
                     Label(error, systemImage: "exclamationmark.triangle")
-                        .foregroundStyle(.red)
+                        .foregroundStyle(BOSSTheme.error)
                         .font(.caption)
                 }
             }
