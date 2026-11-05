@@ -16,14 +16,14 @@ struct WorkoutCameraView: View {
         switch camera.result.phase {
         case .searching: "姿勢を認識中"
         case .ready: "開始姿勢を検出"
-        case .lowering: "肘を曲げた状態を追跡"
+        case .lowering: camera.exercise == .squat ? "膝を曲げた状態を追跡" : "肘を曲げた状態を追跡"
         case .rising: "動作を追跡中"
         }
     }
 
     var body: some View {
         GeometryReader { window in
-            BOSSPage(title: "トレーニング", subtitle: "カメラで腕立て伏せを計測。自分のペースで進めましょう。") {
+            BOSSPage(title: "トレーニング", subtitle: "カメラで運動を試験計測。自分のペースで進めましょう。") {
                 if BOSSLayoutPolicy.compactTraining(detailWidth: window.size.width) {
                     // At 820×540, save/start controls must be visible above the camera.
                     compactControls
@@ -40,10 +40,10 @@ struct WorkoutCameraView: View {
                 BOSSPanel(title: "今回の計測", symbol: "chart.xyaxis.line") {
                     HStack(spacing: 18) {
                         VStack(alignment: .leading, spacing: 7) {
-                            Text("現在の回数")
+                            Text(camera.result.unit == .seconds ? "検出時間" : "現在の回数")
                                 .font(.caption)
                                 .foregroundStyle(BOSSTheme.muted)
-                            Text("\(camera.result.value)回")
+                            Text("\(camera.result.value)\(camera.result.unit == .seconds ? "秒" : "回")")
                                 .font(.system(size: 32, weight: .bold, design: .rounded))
                                 .monospacedDigit()
                         }
@@ -73,11 +73,11 @@ struct WorkoutCameraView: View {
                 BOSSPanel(title: "プライバシーと計測の注意", symbol: "hand.raised") {
                     Label("映像と関節座標はこのMac内で処理", systemImage: "checkmark.shield")
                         .font(.subheadline)
-                    Text("映像を録画・保存・送信することはありません。腕立てのカウントは2D姿勢推定による試験値で、フォームの正確さは保証しません。")
+                    Text("映像を録画・保存・送信することはありません。計測は2D姿勢推定による試験値で、フォームの正確さは保証しません。")
                         .font(.caption)
                         .foregroundStyle(BOSSTheme.muted)
                     Divider().overlay(BOSSTheme.border)
-                    Text(online.signedIn && online.teamId != nil
+                    Text(camera.exercise != .pushUp ? "スクワットとプランクは実験表示のみで、保存やオンライン送信は行いません。" : online.signedIn && online.teamId != nil
                         ? "チーム参加中は「完了して記録」で回数・日時がFirebaseへの送信対象になります。通信できない場合は再送待ちです。"
                         : "ローカル練習ではこのMacに保存します。Googleログインしてチームに参加した後の完了記録は、回数・日時がオンライン送信対象です。")
                         .font(.caption)
@@ -96,7 +96,7 @@ struct WorkoutCameraView: View {
         .onAppear { camera.requestAndStart() }
         .onDisappear { camera.stop() }
         .onReceive(camera.$result) { result in
-            online.sendRoomProgress(result.value)
+            if camera.exercise == .pushUp { online.sendRoomProgress(result.value) }
         }
     }
 
@@ -127,9 +127,9 @@ struct WorkoutCameraView: View {
                         .font(.system(size: 90, weight: .black, design: .rounded))
                         .monospacedDigit()
                         .contentTransition(reduceMotion ? .identity : .numericText())
-                        .accessibilityLabel("腕立て伏せの計測回数")
-                        .accessibilityValue("\(camera.result.value)回")
-                    Text("回 · 腕立て伏せ")
+                        .accessibilityLabel("\(camera.exercise.rawValue)の計測値")
+                        .accessibilityValue("\(camera.result.value)\(camera.result.unit == .seconds ? "秒" : "回")")
+                    Text("\(camera.result.unit == .seconds ? "秒" : "回") · \(camera.exercise.rawValue)")
                         .font(.subheadline.weight(.bold))
                 }
                 .foregroundStyle(.white)
@@ -167,9 +167,7 @@ struct WorkoutCameraView: View {
                 Text("トレーニング種目")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(BOSSTheme.muted)
-                selectedExercise("腕立て伏せ", icon: "figure.strengthtraining.traditional")
-                comingExercise("スクワット", icon: "figure.strengthtraining.functional")
-                comingExercise("プランク", icon: "figure.core.training")
+                exercisePicker
 
                 Text("カメラ")
                     .font(.caption.weight(.semibold))
@@ -196,11 +194,9 @@ struct WorkoutCameraView: View {
                 resetButton
                     .frame(maxWidth: 190)
             }
+            exercisePicker
             Text(saveUnavailableReason ?? "記録はこのMacに保存します。チーム参加中は回数・日時も送信対象です。")
                 .font(.caption).foregroundStyle(BOSSTheme.muted)
-            Text("現在の種目：腕立て伏せ · その他の種目は準備中")
-                .font(.caption)
-                .foregroundStyle(BOSSTheme.muted)
             if let message = completionMessage {
                 Text(message)
                     .font(.caption)
@@ -212,6 +208,17 @@ struct WorkoutCameraView: View {
                     .foregroundStyle(BOSSTheme.warning)
             }
         }
+    }
+
+    private var exercisePicker: some View {
+        Picker("種目", selection: Binding(get: { camera.exercise }, set: {
+            camera.selectExercise($0)
+            completionMessage = nil
+            lastSavedCount = nil
+        })) {
+            ForEach(LocalExercise.allCases) { exercise in Text(exercise.rawValue).tag(exercise) }
+        }
+        .accessibilityLabel("トレーニング種目")
     }
 
     private var cameraPicker: some View {
@@ -260,7 +267,8 @@ struct WorkoutCameraView: View {
     }
 
     private var saveUnavailableReason: String? {
-        BOSSPresentation.saveUnavailableReason(count: camera.result.value, storageError: historyStore.storageError)
+        guard camera.exercise == .pushUp else { return "実験中の種目は保存できません。" }
+        return BOSSPresentation.saveUnavailableReason(count: camera.result.value, storageError: historyStore.storageError)
     }
 
     private var saveButton: some View {
@@ -268,35 +276,8 @@ struct WorkoutCameraView: View {
             Label("完了して記録", systemImage: "checkmark.circle.fill")
         }
         .buttonStyle(BOSSPrimaryButtonStyle())
-        .disabled(camera.result.value <= 0 || historyStore.storageError != nil)
-        .accessibilityHint(camera.result.value <= 0 ? "1回以上の計測で有効になります" :
-            "運動をローカル保存し、チーム参加中は記録の概要を送信します")
-    }
-
-    private func selectedExercise(_ text: String, icon: String) -> some View {
-        HStack {
-            Label(text, systemImage: icon)
-            Spacer()
-            Image(systemName: "checkmark.circle.fill")
-        }
-        .font(.subheadline.weight(.semibold))
-        .foregroundStyle(BOSSTheme.primary)
-        .padding(12)
-        .background(BOSSTheme.violet.opacity(0.25), in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(BOSSTheme.violet))
-    }
-
-    private func comingExercise(_ text: String, icon: String) -> some View {
-        HStack {
-            Label(text, systemImage: icon)
-            Spacer()
-            Text("準備中").font(.caption)
-        }
-        .font(.subheadline)
-        .foregroundStyle(BOSSTheme.muted)
-        .padding(12)
-        .background(BOSSTheme.surface, in: RoundedRectangle(cornerRadius: 12))
-        .accessibilityElement(children: .combine)
+        .disabled(saveUnavailableReason != nil)
+        .accessibilityHint(saveUnavailableReason ?? "運動をローカル保存し、チーム参加中は記録の概要を送信します")
     }
 
     @ViewBuilder
@@ -308,13 +289,14 @@ struct WorkoutCameraView: View {
             .foregroundStyle(BOSSTheme.muted)
         Text(camera.trackingMessage)
             .foregroundStyle(BOSSTheme.muted)
-        Text("肘角度：\(camera.result.angleDegrees.map { String(format: "%.0f°", $0) } ?? "—")")
+        Text("\(camera.exercise == .pushUp ? "肘" : camera.exercise == .squat ? "膝" : "腰")角度：\(camera.result.angleDegrees.map { String(format: "%.0f°", $0) } ?? "—")")
             .foregroundStyle(BOSSTheme.muted)
         Text("認識信頼度：\(Int(camera.result.confidence * 100))%（参考値）")
             .foregroundStyle(BOSSTheme.muted)
     }
 
     private func saveWorkout() {
+        guard saveUnavailableReason == nil else { return }
         let count = camera.result.value
         let previousIDs = Set(historyStore.history.sessions.map { $0.id })
         if historyStore.recordPushUps(count) {
