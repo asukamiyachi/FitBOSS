@@ -47,6 +47,7 @@ public struct PlankEvaluator: ExerciseEvaluator {
         if let previous, frame.timestamp <= previous || frame.timestamp - previous > 0.7 {
             self.previous = nil; trackedShoulder = nil; diagnostic = .invalidTimestamp; return report(.searching, nil, 0)
         }
+        var rejectedPose: (angle: Double, confidence: Double)?
         for (s, h, k) in [(BodyJoint.leftShoulder, BodyJoint.leftHip, BodyJoint.leftKnee), (.rightShoulder, .rightHip, .rightKnee)] {
             guard trackedShoulder == nil || trackedShoulder == s else { continue }
             guard let shoulder = frame[s], let hip = frame[h], let knee = frame[k] else { continue }
@@ -56,12 +57,21 @@ public struct PlankEvaluator: ExerciseEvaluator {
                   let angle = PushUpEvaluator.angle(shoulder, hip, knee, imageAspectRatio: frame.imageAspectRatio) else { continue }
             let dx = abs((shoulder.x - hip.x) * frame.imageAspectRatio)
             let dy = abs(shoulder.y - hip.y)
-            guard angle >= 150, dx > dy else { previous = nil; trackedShoulder = nil; diagnostic = .stabilizing; return report(.searching, angle, confidence) }
+            guard angle >= 150, dx > dy else {
+                if rejectedPose == nil { rejectedPose = (angle, confidence) }
+                continue
+            }
             if let previous { elapsed += frame.timestamp - previous }
             previous = frame.timestamp; trackedShoulder = s; diagnostic = .ready
             return report(.ready, angle, confidence)
         }
-        previous = nil; trackedShoulder = nil; diagnostic = .missingJoints
+        previous = nil
+        trackedShoulder = nil
+        if let rejectedPose {
+            diagnostic = .stabilizing
+            return report(.searching, rejectedPose.angle, rejectedPose.confidence)
+        }
+        diagnostic = .missingJoints
         return report(.searching, nil, 0)
     }
     private func report(_ phase: TrackingPhase, _ angle: Double?, _ confidence: Double) -> ExerciseResult {

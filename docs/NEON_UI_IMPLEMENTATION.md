@@ -1,5 +1,7 @@
 # FitBOSS — neon fitness UI (first implementation)
 
+> Historical implementation record. The current theme and UI changes, validation, and open acceptance items are documented in [FINAL_UI_IMPLEMENTATION.md](FINAL_UI_IMPLEMENTATION.md).
+
 ## Scope and design intent
 
 Implements a **Smart Fitness-inspired** dark navy, electric-blue and violet SwiftUI presentation for three screens without changing camera capture, exercise evaluation, workout storage, Firebase backend, or public distribution.

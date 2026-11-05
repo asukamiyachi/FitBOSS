@@ -41,6 +41,22 @@ final class ExerciseExperimentsTests: XCTestCase {
         XCTAssertEqual(timer.process(upright).phase,.searching)
         XCTAssertEqual(timer.process(upright).value,0)
     }
+    func testPlankStartsOnRightWhenLeftPoseIsInvalid() {
+        var timer = PlankEvaluator()
+        for time in [0.0, 0.5, 1.0] {
+            let frame = PoseFrame(timestamp: time, joints: [
+                .leftShoulder: Landmark(x: 0.2, y: 0.65, confidence: 0.9),
+                .leftHip: Landmark(x: 0.5, y: 0.5, confidence: 0.9),
+                .leftKnee: Landmark(x: 0.8, y: 0.65, confidence: 0.9),
+                .rightShoulder: Landmark(x: 0.2, y: 0.5, confidence: 0.9),
+                .rightHip: Landmark(x: 0.5, y: 0.5, confidence: 0.9),
+                .rightKnee: Landmark(x: 0.8, y: 0.5, confidence: 0.9),
+            ])
+            XCTAssertEqual(timer.process(frame).phase, .ready)
+        }
+        XCTAssertEqual(timer.interruptTracking().value, 1)
+    }
+
     func testPlankDoesNotBridgeTrackingLossAcrossBodySides() {
         var timer = PlankEvaluator()
         _ = timer.process(plankFrame(0))

@@ -8,6 +8,7 @@ struct WorkoutCameraView: View {
     @ObservedObject var historyStore: WorkoutHistoryStore
     @ObservedObject var online: OnlineService
     @StateObject private var camera = CameraManager()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var completionMessage: String?
     @State private var lastSavedCount: Int?
 
@@ -59,12 +60,12 @@ struct WorkoutCameraView: View {
                     if let message = completionMessage {
                         Label(message, systemImage: lastSavedCount == nil ? "info.circle" : "checkmark.circle")
                             .font(.caption)
-                            .foregroundStyle(lastSavedCount == nil ? .orange : BOSSTheme.mint)
+                            .foregroundStyle(lastSavedCount == nil ? BOSSTheme.warning : BOSSTheme.mint)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     if let error = historyStore.storageError {
                         Label(error, systemImage: "exclamationmark.triangle")
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(BOSSTheme.warning)
                             .font(.caption)
                     }
                 }
@@ -75,7 +76,7 @@ struct WorkoutCameraView: View {
                     Text("映像を録画・保存・送信することはありません。計測は2D姿勢推定による試験値で、フォームの正確さは保証しません。")
                         .font(.caption)
                         .foregroundStyle(BOSSTheme.muted)
-                    Divider().overlay(.white.opacity(0.15))
+                    Divider().overlay(BOSSTheme.border)
                     Text(camera.exercise != .pushUp ? "スクワットとプランクは実験表示のみで、保存やオンライン送信は行いません。" : online.signedIn && online.teamId != nil
                         ? "チーム参加中は「完了して記録」で回数・日時がFirebaseへの送信対象になります。通信できない場合は再送待ちです。"
                         : "ローカル練習ではこのMacに保存します。Googleログインしてチームに参加した後の完了記録は、回数・日時がオンライン送信対象です。")
@@ -110,7 +111,7 @@ struct WorkoutCameraView: View {
                     BOSSPill(
                         text: camera.isRunning ? "計測中" : camera.isStarting ? "カメラ起動中" : "停止中",
                         symbol: camera.isRunning ? "circle.fill" : "video.slash",
-                        tint: camera.isRunning ? BOSSTheme.mint : .orange
+                        tint: camera.isRunning ? BOSSTheme.mint : BOSSTheme.warning
                     )
                     Spacer(minLength: 8)
                     Text(phaseText)
@@ -118,14 +119,14 @@ struct WorkoutCameraView: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 9)
-                        .background(.black.opacity(0.7), in: Capsule())
+                        .background(.black, in: Capsule())
                 }
                 Spacer()
                 VStack(spacing: 3) {
                     Text("\(camera.result.value)")
                         .font(.system(size: 90, weight: .black, design: .rounded))
                         .monospacedDigit()
-                        .contentTransition(.numericText())
+                        .contentTransition(reduceMotion ? .identity : .numericText())
                         .accessibilityLabel("\(camera.exercise.rawValue)の計測値")
                         .accessibilityValue("\(camera.result.value)\(camera.result.unit == .seconds ? "秒" : "回")")
                     Text("\(camera.result.unit == .seconds ? "秒" : "回") · \(camera.exercise.rawValue)")
@@ -134,13 +135,12 @@ struct WorkoutCameraView: View {
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 13)
-                .background {
-                    LinearGradient(colors: [.clear, .black.opacity(0.82)],
-                                   startPoint: .top, endPoint: .bottom)
-                }
+                .background(.black)
                 Text("動作は試験判定です。無理なく休息を取りましょう。")
                     .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.84))
+                    .foregroundStyle(.white)
+                    .padding(4)
+                    .background(.black)
                     .padding(.bottom, 5)
             }
             .padding(16)
@@ -149,7 +149,7 @@ struct WorkoutCameraView: View {
                     .font(.caption)
                     .foregroundStyle(.white)
                     .padding(12)
-                    .background(.red.opacity(0.85), in: RoundedRectangle(cornerRadius: 11))
+                    .background(Color(red: 0.55, green: 0.04, blue: 0.04), in: RoundedRectangle(cornerRadius: 11))
                     .padding(16)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             }
@@ -176,8 +176,8 @@ struct WorkoutCameraView: View {
                 cameraPicker
                 cameraToggleButton
                 resetButton
-                saveButton
-                    .padding(.top, 6)
+                saveButton.padding(.top, 6)
+                if let reason = saveUnavailableReason { Text(reason).font(.caption).foregroundStyle(BOSSTheme.muted) }
             }
         }
     }
@@ -195,15 +195,17 @@ struct WorkoutCameraView: View {
                     .frame(maxWidth: 190)
             }
             exercisePicker
+            Text(saveUnavailableReason ?? "記録はこのMacに保存します。チーム参加中は回数・日時も送信対象です。")
+                .font(.caption).foregroundStyle(BOSSTheme.muted)
             if let message = completionMessage {
                 Text(message)
                     .font(.caption)
-                    .foregroundStyle(lastSavedCount == nil ? .orange : BOSSTheme.mint)
+                    .foregroundStyle(lastSavedCount == nil ? BOSSTheme.warning : BOSSTheme.mint)
             }
             if let error = historyStore.storageError {
                 Label(error, systemImage: "exclamationmark.triangle")
                     .font(.caption)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(BOSSTheme.warning)
             }
         }
     }
@@ -225,7 +227,7 @@ struct WorkoutCameraView: View {
             set: { camera.selectCamera(id: $0) }
         )) {
             if camera.devices.isEmpty {
-                Text("カメラを検索中").tag("")
+                Text(camera.isStarting ? "カメラを検索中" : "利用可能なカメラなし").tag("")
             }
             ForEach(camera.devices) { device in
                 Text(device.name).tag(device.id)
@@ -264,19 +266,23 @@ struct WorkoutCameraView: View {
         .buttonStyle(BOSSSecondaryButtonStyle())
     }
 
+    private var saveUnavailableReason: String? {
+        guard camera.exercise == .pushUp else { return "実験中の種目は保存できません。" }
+        return BOSSPresentation.saveUnavailableReason(count: camera.result.value, storageError: historyStore.storageError)
+    }
+
     private var saveButton: some View {
         Button(action: saveWorkout) {
             Label("完了して記録", systemImage: "checkmark.circle.fill")
         }
         .buttonStyle(BOSSPrimaryButtonStyle())
-        .disabled(camera.exercise != .pushUp || camera.result.value <= 0 || historyStore.storageError != nil)
-        .accessibilityHint(camera.exercise != .pushUp ? "実験中の種目は保存できません" : camera.result.value <= 0 ? "1回以上の計測で有効になります" :
-            "運動をローカル保存し、チーム参加中は記録の概要を送信します")
+        .disabled(saveUnavailableReason != nil)
+        .accessibilityHint(saveUnavailableReason ?? "運動をローカル保存し、チーム参加中は記録の概要を送信します")
     }
 
     @ViewBuilder
     private var diagnostics: some View {
-        Label(camera.isRunning ? "カメラ：動作中" : "カメラ：停止中",
+        Label(camera.isStarting ? "カメラ：起動中" : camera.isRunning ? "カメラ：動作中" : "カメラ：停止中",
               systemImage: "video.fill")
             .foregroundStyle(camera.isRunning ? BOSSTheme.mint : BOSSTheme.muted)
         Label(phaseText, systemImage: "figure.strengthtraining.traditional")
@@ -290,6 +296,7 @@ struct WorkoutCameraView: View {
     }
 
     private func saveWorkout() {
+        guard saveUnavailableReason == nil else { return }
         let count = camera.result.value
         let previousIDs = Set(historyStore.history.sessions.map { $0.id })
         if historyStore.recordPushUps(count) {

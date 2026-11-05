@@ -7,21 +7,7 @@ struct ScreenLayout<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(title).font(.largeTitle.bold())
-                    Text(subtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                content
-            }
-            .frame(maxWidth: 1040, alignment: .leading)
-            .padding(28)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-        }
-        .navigationTitle(title)
+        BOSSPage(title: title, subtitle: subtitle) { content }
     }
 }
 
@@ -56,13 +42,6 @@ struct InformationPanel<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Label(title, systemImage: icon)
-                .font(.title3.weight(.semibold))
-            content
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(20)
-        .background(Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
+        BOSSPanel(title: title, symbol: icon) { content }
     }
 }
